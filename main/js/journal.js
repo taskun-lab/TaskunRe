@@ -63,16 +63,16 @@ function renderJournals() {
 
 function openJournalDetailModal(j) {
     currentEditJournal = j;
-    document.getElementById('journalDetailDate').textContent = j.date;
-    document.getElementById('journalDetailTitle').textContent = j.title || '（無題）';
-    document.getElementById('journalDetailContent').textContent = j.content || '';
+    document.getElementById('journalModalDate').textContent = j.date;
+    document.getElementById('journalModalTitle').textContent = j.title || '（無題）';
+    document.getElementById('journalModalContent').textContent = j.content || '';
     document.getElementById('journalDetailModal').style.display = 'flex';
 }
 
 function bindJournalDetailModalUI() {
     const modal = document.getElementById('journalDetailModal');
     if (!modal) return;
-    document.getElementById('journalDetailCloseBtn').onclick = () => modal.style.display = 'none';
+    document.getElementById('closeJournalDetail').onclick = () => modal.style.display = 'none';
     document.getElementById('journalDetailBackdrop').onclick = () => modal.style.display = 'none';
     document.getElementById('journalEditBtn').onclick = () => {
         if (!currentEditJournal) return;

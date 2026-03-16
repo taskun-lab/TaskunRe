@@ -2,8 +2,6 @@
    ムキムキタスくん３ - タスク管理（Phase2: 2種別対応）
    ============================================= */
 
-let isDraggingCard = false;
-
 async function loadList() {
     try {
         const data = await apiCall(`/tasks/list?user_id=${encodeURIComponent(userId)}`);

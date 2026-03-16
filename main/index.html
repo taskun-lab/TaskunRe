@@ -9,9 +9,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="ios/theme-ios.css">
-    <link rel="stylesheet" href="ios/ios-components.css">
-    <link rel="stylesheet" href="ios/ios-motion.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -407,7 +404,7 @@
     <div id="missionDetailModal">
         <div class="mission-modal-backdrop" id="missionModalBackdrop"></div>
         <div class="mission-modal-panel" id="missionModalPanel">
-            <img class="mission-completed-overlay" src="images/complete_stamp.png" alt="COMPLETED" />
+            <div class="mission-completed-overlay">COMPLETED</div>
             <div class="mission-modal-header">
                 <div class="mission-modal-badge"><span>🎯</span><span>MISSION</span></div>
                 <button class="mission-modal-close" id="missionModalClose">&times;</button>
@@ -564,7 +561,5 @@
     <script src="js/modal.js"></script>
     <script src="js/developer.js"></script>
     <script src="js/app.js"></script>
-    <script src="ios/ios-theme.js"></script>
-    <script src="ios/ios-swipe.js"></script>
 </body>
 </html>
