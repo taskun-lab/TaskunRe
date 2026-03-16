@@ -12,7 +12,7 @@ const ENV = (() => {
 // === LIFF設定 ===
 const LIFF_ID = ENV === 'DEV'
     ? "<DEV_LIFF_ID>"    // ← LINE Developers Console で作成したDEV用LIFF ID
-    : "<PROD_LIFF_ID>";  // ← LINE Developers Console で作成したPROD用LIFF ID
+    : "2008277838-k2Pzxo0I";  // ← LINE Developers Console で作成したPROD用LIFF ID
 
 // === Supabase設定 ===
 const SUPABASE_URL = "https://ixsfyxhvwcevsvobsted.supabase.co";   // 末尾スラッシュなし
