@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="ngrok-skip-browser-warning" content="true" />
+    <title>プラン詳細 | ムキムキタスくん</title>
+
+    <!-- Google Fonts（メインアプリと統一）-->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+    <!-- ローディング -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-emoji">💪</div>
+        <div class="loading-text">読み込み中...</div>
+    </div>
+
+    <!-- メインコンテンツ -->
+    <div id="mainContent" style="display:none;">
+        <!-- ヘッダー -->
+        <header class="page-header">
+            <div class="header-title">
+                <span class="header-emoji">💪</span>
+                <span class="heading-serif">プラン詳細</span>
+            </div>
+            <p class="header-sub">ムキムキタスくんをもっと活用しよう</p>
+        </header>
+
+        <!-- 現在のプラン表示 -->
+        <section class="current-plan-section" id="currentPlanSection">
+            <div class="section-label">現在のプラン</div>
+            <div class="current-plan-card" id="currentPlanCard">
+                <div class="current-plan-name" id="currentPlanName">-</div>
+                <div class="current-plan-detail" id="currentPlanDetail"></div>
+            </div>
+        </section>
+
+        <!-- プラン一覧 -->
+        <section class="plans-section">
+            <div class="section-label">プラン一覧</div>
+            <div class="plans-list" id="plansList"></div>
+        </section>
+
+        <!-- 注意事項 -->
+        <section class="notes-section">
+            <div class="section-label">ご利用にあたって</div>
+            <ul class="notes-list">
+                <li>お支払いはStripeによる安全な決済です</li>
+                <li>プラン変更・解約はいつでも可能です</li>
+                <li>解約後も期間満了まで機能をご利用いただけます</li>
+            </ul>
+        </section>
+    </div>
+
+    <!-- 購入確認モーダル -->
+    <div id="confirmModal" class="confirm-modal" style="display:none;">
+        <div class="confirm-backdrop" id="confirmBackdrop"></div>
+        <div class="confirm-panel">
+            <div class="confirm-title heading-serif">プランの購入</div>
+            <p class="confirm-message" id="confirmMessage"></p>
+            <div class="confirm-buttons">
+                <button class="confirm-btn-cancel" id="confirmCancelBtn">キャンセル</button>
+                <button class="confirm-btn-ok" id="confirmOkBtn">購入手続きへ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

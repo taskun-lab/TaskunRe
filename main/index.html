@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="ngrok-skip-browser-warning" content="true" />
+    <title>💪 ムキムキタスくん</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="ios/theme-ios.css">
+    <link rel="stylesheet" href="ios/ios-components.css">
+    <link rel="stylesheet" href="ios/ios-motion.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+
+    <nav class="tab-nav">
+        <div class="tab-nav-item active" data-tab="list">リスト</div>
+        <div class="tab-nav-item" data-tab="status">ステータス</div>
+        <div class="tab-nav-item" data-tab="journal">ジャーナル</div>
+    </nav>
+
+    <!-- リストタブ -->
+    <div id="tab-list" class="tab-content active">
+        <header>
+            <div class="bar">
+                <div class="bar-title">リスト</div>
+                <button id="btnAdd">＋ タスクを追加</button>
+                <button class="bar-btn" id="refreshBtn">↻</button>
+                <button class="bar-btn dev-menu-btn" id="devMenuBtn" style="display:none;">⋯</button>
+            </div>
+        </header>
+        <main>
+            <div id="missionTaskContainer"></div>
+            <div class="divider-label">🎯 ToDoタスク</div>
+            <div id="critical" class="list"></div>
+            <div id="high" class="list"></div>
+            <div id="active" class="list"></div>
+            <div class="divider-label">✅ 達成タスク</div>
+            <div id="completed" class="list"></div>
+        </main>
+    </div>
+
+    <!-- ステータスタブ -->
+    <div id="tab-status" class="tab-content">
+        <header>
+            <div class="bar">
+                <div class="bar-title">ステータス</div>
+                <button class="msc-open-btn" id="mscOpenBtn">MSC</button>
+                <button class="bar-btn" id="statusRefreshBtn">↻</button>
+            </div>
+        </header>
+        <main>
+            <!-- ストリークバッジエリア -->
+            <div id="streakBadges" class="streak-badges"></div>
+
+            <!-- MSC 成長カード -->
+            <div id="msc-card-view" class="msc-view">
+                <div class="msc-modal-backdrop" id="mscModalBackdrop"></div>
+                <div class="msc-container">
+                    <div class="msc-card">
+                        <div class="msc-header">
+                            <div class="msc-header-left">
+                                <div class="msc-icon">💪</div>
+                                <div class="msc-title-area">
+                                    <div class="msc-title">ムキムキ属性</div>
+                                    <div class="msc-mbti-tag" id="mscMbtiTag" onclick="openMbtiModal()">MBTI未設定</div>
+                                </div>
+                            </div>
+                            <div class="msc-header-right">
+                                <div class="msc-level-badge" id="mscLevelBadge">Lv.1 見習いトレーニー</div>
+                                <div class="msc-level-score">
+                                    <span class="msc-stars" id="mscStars">★★★★☆</span>
+                                    <span class="msc-score" id="mscScore">3.5</span>
+                                </div>
+                                <div class="msc-exp-bar"><div class="msc-exp-fill" id="mscExpFill" style="width:35%"></div></div>
+                                <div class="msc-exp-text" id="mscExpText">350 / 1000 EXP</div>
+                            </div>
+                        </div>
+                        <div class="msc-radar-section">
+                            <div class="msc-radar-container">
+                                <canvas id="mscRadarChart"></canvas>
+                            </div>
+                            <div class="msc-radar-date" id="mscRadarDate">※累計データ基準</div>
+                        </div>
+                        <div class="msc-traits-row">
+                            <div class="msc-traits-section msc-strength-section">
+                                <div id="mscStrengths">
+                                    <div class="msc-trait-item">
+                                        <div class="msc-trait-label">STRENGTH</div>
+                                        <div class="msc-trait-icon">🌅</div>
+                                        <div class="msc-trait-content">
+                                            <div class="msc-trait-header">
+                                                <span class="msc-trait-name">規律シールド</span>
+                                                <span class="msc-trait-level">Lv.4.2</span>
+                                            </div>
+                                            <div class="msc-trait-desc">早起きと禁酒を継続し、規律正しい生活を送っている。</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="msc-traits-section msc-weakness-section">
+                                <div id="mscWeaknesses">
+                                    <div class="msc-trait-item">
+                                        <div class="msc-trait-label">WEAKNESS</div>
+                                        <div class="msc-trait-icon">📝</div>
+                                        <div class="msc-trait-content">
+                                            <div class="msc-trait-header">
+                                                <span class="msc-trait-name">内省タイム</span>
+                                                <span class="msc-trait-level">Lv.2.1</span>
+                                            </div>
+                                            <div class="msc-trait-desc">ジャーナル記録が不安定。振り返りの習慣化が課題。</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="msc-bio-section">
+                            <div class="msc-bio-title">生態メモ</div>
+                            <div class="msc-bio-text" id="mscBioText">
+                                朝型の生活リズムを好み、コツコツと積み上げることを大切にしている。
+                                知識欲が強く、常に新しいことを学ぼうとする姿勢を持つ。
+                            </div>
+                        </div>
+                        <div class="msc-footer">©2025 ムキムキタスくん</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- トレーニングログ -->
+            <div id="msc-log-view" class="msc-view">
+                <div class="status-section daily-task-card" id="dailyTaskCard">
+                    <div class="daily-task-header">
+                        <div class="status-section-title"><span>🏋️</span> デイリータスク</div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <button id="habitSettingsBtn" class="habit-settings-btn" onclick="showHabitSettingsModal()">⚙ 習慣を設定</button>
+                            <span class="daily-task-arrow">▼</span>
+                        </div>
+                    </div>
+                    <div class="daily-task-content">
+                        <div class="habit-list" id="habitList"></div>
+                        <div class="daily-task-buttons">
+                            <button class="daily-btn daily-btn-cancel" id="habitCancelBtn">キャンセル</button>
+                            <button class="daily-btn daily-btn-save" id="habitSaveBtn">💪 記録する</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="week-view-header">
+                        <div class="status-section-title" style="margin-bottom:0;"><span>📅</span> 週間ログ</div>
+                        <button class="detail-view-btn" id="openMonthlyAnalysis"><span>📊</span> 詳しく見る</button>
+                    </div>
+                    <table class="week-table" id="weekTable">
+                        <thead><tr><th>習慣</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th><th>日</th></tr></thead>
+                        <tbody id="weekTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="status-section">
+                    <div class="status-section-title"><span>💪</span> 成長分析</div>
+                    <div class="progress-bar-container">
+                        <div class="progress-label">
+                            <span class="progress-label-name">週間達成率</span>
+                            <span class="progress-label-value" id="weekProgressValue">0%</span>
+                        </div>
+                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="weekProgressBar" style="width:0%"></div></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ジャーナルタブ -->
+    <div id="tab-journal" class="tab-content">
+        <header>
+            <div class="bar">
+                <div class="bar-title">ジャーナル</div>
+                <button class="bar-btn" id="journalRefreshBtn">↻</button>
+            </div>
+        </header>
+        <main>
+            <div class="journal-form">
+                <div class="status-section-title" style="margin-bottom:16px;"><span>📝</span> 今日のトレーニング記録</div>
+                <div class="form-group">
+                    <label class="form-label">日付</label>
+                    <input type="date" class="form-input" id="journalDate" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">タイトル</label>
+                    <input type="text" class="form-input" id="journalTitle" placeholder="今日のひとこと…" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">振り返り内容</label>
+                    <textarea class="form-textarea" id="journalContent" placeholder="今日の成長を記録しよう…"></textarea>
+                </div>
+                <button class="journal-submit-btn" id="journalSubmitBtn">💪 記録を保存</button>
+            </div>
+            <div class="divider-label">📚 過去の記録</div>
+            <div class="journal-list" id="journalList"></div>
+        </main>
+    </div>
+
+    <!-- ジャーナル詳細モーダル -->
+    <div id="journalDetailModal" class="modal-root">
+        <div class="modal-backdrop" id="journalDetailBackdrop"></div>
+        <div class="modal-panel" style="max-height:80vh;overflow-y:auto;">
+            <div id="journalViewContent" class="journal-view-content">
+                <div class="journal-modal-header">
+                    <div>
+                        <div class="journal-modal-date" id="journalModalDate"></div>
+                        <div class="journal-modal-title" id="journalModalTitle"></div>
+                    </div>
+                    <button id="closeJournalDetail" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+                </div>
+                <div class="journal-tasks-section">
+                    <div class="journal-tasks-header"><span>✓</span> この日に達成したタスク</div>
+                    <div class="journal-tasks-list" id="journalModalTasks"></div>
+                </div>
+                <div class="journal-content-section">
+                    <div class="journal-content-label">振り返り内容</div>
+                    <div class="journal-content-body" id="journalModalContent"></div>
+                </div>
+                <div class="journal-modal-actions" style="gap:8px;">
+                    <button class="journal-close-btn" id="journalCloseBtn">閉じる</button>
+                    <button class="journal-close-btn" id="journalDeleteBtn" style="background:#ff6b6b;color:white;border-color:#ff6b6b;">🗑️ 削除</button>
+                    <button class="journal-edit-modal-btn" id="journalEditBtn">✏️ 編集する</button>
+                </div>
+            </div>
+            <div id="journalEditContent" class="journal-edit-form">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;margin-top:10px;">
+                    <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">📝 ジャーナルを編集</div>
+                    <button id="closeJournalEdit" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+                </div>
+                <div class="form-group"><label class="form-label">タイトル</label><input type="text" class="form-input" id="editJournalTitle" /></div>
+                <div class="form-group"><label class="form-label">内容</label><textarea class="form-textarea" id="editJournalContent" style="min-height:150px;"></textarea></div>
+                <div class="journal-modal-actions">
+                    <button class="journal-close-btn" id="journalCancelEditBtn">キャンセル</button>
+                    <button class="journal-edit-modal-btn" id="journalSaveEditBtn">💪 保存する</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 月間分析モーダル -->
+    <div id="monthlyAnalysisModal" class="modal-root">
+        <div class="modal-backdrop" id="monthlyAnalysisBackdrop"></div>
+        <div class="modal-panel" style="max-height:85vh;overflow-y:auto;">
+            <div class="monthly-analysis-header">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">📊 月間トレーニング分析</div>
+                <button id="closeMonthlyAnalysis" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+            </div>
+            <div class="month-selector">
+                <button class="month-selector-btn" id="prevMonthBtn">&lt;</button>
+                <div class="current-month" id="currentMonthLabel"></div>
+                <button class="month-selector-btn" id="nextMonthBtn">&gt;</button>
+            </div>
+            <div class="monthly-stats-summary" style="margin-top:16px;">
+                <div class="monthly-stat-card"><div class="monthly-stat-value" id="monthlyTotalDays">0</div><div class="monthly-stat-label">記録日数</div></div>
+                <div class="monthly-stat-card"><div class="monthly-stat-value" id="monthlyAchievement">0%</div><div class="monthly-stat-label">総合達成率</div></div>
+                <div class="monthly-stat-card"><div class="monthly-stat-value" id="monthlyBestStreak">0</div><div class="monthly-stat-label">最長連続</div></div>
+            </div>
+            <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:14px;margin:16px 0 8px;">📅 日別達成状況</div>
+            <div class="monthly-table-container">
+                <table class="monthly-table">
+                    <thead><tr><th>日付</th><th>🌅</th><th>🎯</th><th>📚</th><th>📝</th><th>🚫</th><th>💪</th><th>達成</th></tr></thead>
+                    <tbody id="monthlyTableBody"></tbody>
+                </table>
+            </div>
+            <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:14px;margin:16px 0 8px;">📈 達成率の推移</div>
+            <div class="monthly-chart-container"><canvas id="monthlyChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- タスク詳細モーダル -->
+    <div id="taskDetailModal" class="modal-root">
+        <div class="modal-backdrop" id="taskDetailBackdrop"></div>
+        <div class="modal-panel" style="max-height:80vh;overflow-y:auto;">
+            <div id="taskViewContent" class="task-view-content">
+                <div class="task-modal-header">
+                    <div>
+                        <div class="task-modal-priority" id="taskModalPriority"></div>
+                        <div class="task-modal-title" id="taskModalTitle"></div>
+                    </div>
+                    <button id="closeTaskDetail" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+                </div>
+                <div class="task-modal-info" id="taskModalInfo"></div>
+                <div class="task-modal-actions">
+                    <button class="task-modal-btn task-btn-close" id="taskDetailCloseBtn">閉じる</button>
+                    <button class="task-modal-btn task-btn-edit" id="taskDetailEditBtn">✏️ 編集</button>
+                </div>
+            </div>
+            <div id="taskEditContent" class="task-edit-form">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;margin-top:10px;">
+                    <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">📝 タスクを編集</div>
+                    <button id="closeTaskEdit" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">タスク名</label>
+                    <input type="text" class="form-input" id="editTaskName" />
+                </div>
+                <div class="task-modal-actions">
+                    <button class="task-modal-btn task-btn-close" id="taskCancelEditBtn">キャンセル</button>
+                    <button class="task-modal-btn task-btn-save" id="taskSaveEditBtn">💪 保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 詳細モーダル -->
+    <div id="detailModal" class="modal-root">
+        <div id="detailBackdrop" class="modal-backdrop"></div>
+        <div class="modal-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;" id="modalTitle">タスク詳細</div>
+                <button id="detailCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+            </div>
+            <div id="detailTaskTitle" style="font-size:14px;color:var(--text-secondary);margin:8px 0 16px;padding:10px;background:var(--bg-main);border-radius:10px;"></div>
+            <div id="scoreGroup">
+                <div class="slider-group"><div class="slider-label-row"><span>🎯 優先度</span><span class="value" id="valPriority"></span></div><input id="inputPriority" type="range" min="0" max="10" step="1" style="width:100%" /></div>
+                <div class="slider-group"><div class="slider-label-row"><span>🔮 ビジョン関連度</span><span class="value" id="valVision"></span></div><input id="inputVision" type="range" min="0" max="10" step="1" style="width:100%" /></div>
+                <div class="slider-group"><div class="slider-label-row"><span>✨ わくわく度</span><span class="value" id="valExcite"></span></div><input id="inputExcite" type="range" min="0" max="10" step="1" style="width:100%" /></div>
+                <div class="slider-group"><div class="slider-label-row"><span>💪 成長度</span><span class="value" id="valGrowth"></span></div><input id="inputGrowth" type="range" min="0" max="10" step="1" style="width:100%" /></div>
+            </div>
+            <div id="remindGroup" class="slider-group">
+                <div class="slider-label-row"><span>🔔 リマインド日時</span><span class="value" id="valRemindAt"></span></div>
+                <input id="inputRemindAt" type="datetime-local" style="width:100%;padding:12px;border:2px solid rgba(13,27,42,0.1);border-radius:12px;font-size:14px;" />
+            </div>
+            <div class="modal-footer">
+                <button id="detailCancelBtn" class="btn-secondary">キャンセル</button>
+                <button id="detailSaveBtn" class="btn-primary-solid">💪 保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MBTI選択モーダル -->
+    <div id="mbtiModal" class="modal-root">
+        <div id="mbtiBackdrop" class="modal-backdrop"></div>
+        <div class="modal-panel" style="max-height:80vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;margin-bottom:10px;">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">🧠 MBTIタイプを選択</div>
+                <button id="mbtiCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">あなたの性格タイプを選んでください</div>
+            <div class="mbti-grid" id="mbtiGrid">
+                <div class="mbti-option" data-mbti="INTJ"><div class="mbti-option-type">INTJ</div><div class="mbti-option-name">建築家</div></div>
+                <div class="mbti-option" data-mbti="INTP"><div class="mbti-option-type">INTP</div><div class="mbti-option-name">論理学者</div></div>
+                <div class="mbti-option" data-mbti="ENTJ"><div class="mbti-option-type">ENTJ</div><div class="mbti-option-name">指揮官</div></div>
+                <div class="mbti-option" data-mbti="ENTP"><div class="mbti-option-type">ENTP</div><div class="mbti-option-name">討論者</div></div>
+                <div class="mbti-option" data-mbti="INFJ"><div class="mbti-option-type">INFJ</div><div class="mbti-option-name">提唱者</div></div>
+                <div class="mbti-option" data-mbti="INFP"><div class="mbti-option-type">INFP</div><div class="mbti-option-name">仲介者</div></div>
+                <div class="mbti-option" data-mbti="ENFJ"><div class="mbti-option-type">ENFJ</div><div class="mbti-option-name">主人公</div></div>
+                <div class="mbti-option" data-mbti="ENFP"><div class="mbti-option-type">ENFP</div><div class="mbti-option-name">広報運動家</div></div>
+                <div class="mbti-option" data-mbti="ISTJ"><div class="mbti-option-type">ISTJ</div><div class="mbti-option-name">管理者</div></div>
+                <div class="mbti-option" data-mbti="ISFJ"><div class="mbti-option-type">ISFJ</div><div class="mbti-option-name">擁護者</div></div>
+                <div class="mbti-option" data-mbti="ESTJ"><div class="mbti-option-type">ESTJ</div><div class="mbti-option-name">幹部</div></div>
+                <div class="mbti-option" data-mbti="ESFJ"><div class="mbti-option-type">ESFJ</div><div class="mbti-option-name">領事官</div></div>
+                <div class="mbti-option" data-mbti="ISTP"><div class="mbti-option-type">ISTP</div><div class="mbti-option-name">巨匠</div></div>
+                <div class="mbti-option" data-mbti="ISFP"><div class="mbti-option-type">ISFP</div><div class="mbti-option-name">冒険家</div></div>
+                <div class="mbti-option" data-mbti="ESTP"><div class="mbti-option-type">ESTP</div><div class="mbti-option-name">起業家</div></div>
+                <div class="mbti-option" data-mbti="ESFP"><div class="mbti-option-type">ESFP</div><div class="mbti-option-name">エンターテイナー</div></div>
+            </div>
+            <div class="modal-footer">
+                <button id="mbtiClearBtn" class="btn-secondary">クリア</button>
+                <button id="mbtiSaveBtn" class="btn-primary-solid">💪 保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 優先順位選択モーダル -->
+    <div id="priorityModal" class="modal-root">
+        <div id="priorityBackdrop" class="modal-backdrop"></div>
+        <div class="modal-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;margin-bottom:10px;">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">⚡ 優先順位を設定</div>
+                <button id="priorityCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+            </div>
+            <div id="priorityTaskTitle" style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;"></div>
+            <div class="priority-selector">
+                <div class="priority-option critical" data-priority="critical">
+                    <div class="priority-option-icon">🔥</div>
+                    <div class="priority-option-text">
+                        <div class="priority-option-title">最重要</div>
+                        <div class="priority-option-desc">今すぐ取り組むべき最優先タスク</div>
+                    </div>
+                </div>
+                <div class="priority-option high" data-priority="high">
+                    <div class="priority-option-icon">⚡</div>
+                    <div class="priority-option-text">
+                        <div class="priority-option-title">重要</div>
+                        <div class="priority-option-desc">優先的に処理すべきタスク</div>
+                    </div>
+                </div>
+                <div class="priority-option normal" data-priority="normal">
+                    <div class="priority-option-icon">📌</div>
+                    <div class="priority-option-text">
+                        <div class="priority-option-title">ノーマル</div>
+                        <div class="priority-option-desc">通常の優先度に戻す</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ミッション詳細モーダル -->
+    <div id="missionDetailModal">
+        <div class="mission-modal-backdrop" id="missionModalBackdrop"></div>
+        <div class="mission-modal-panel" id="missionModalPanel">
+            <img class="mission-completed-overlay" src="images/complete_stamp.png" alt="COMPLETED" />
+            <div class="mission-modal-header">
+                <div class="mission-modal-badge"><span>🎯</span><span>MISSION</span></div>
+                <button class="mission-modal-close" id="missionModalClose">&times;</button>
+            </div>
+            <div class="mission-modal-title" id="missionModalTitle">ミッションタイトル</div>
+            <div class="mission-modal-desc" id="missionModalDesc">ミッションの説明がここに表示されます。</div>
+            <div class="mission-modal-stats">
+                <div class="mission-stat-item" id="missionStatExpire">
+                    <div class="mission-stat-value" id="missionModalDays">-</div>
+                    <div class="mission-stat-label">残り日数</div>
+                </div>
+                <div class="mission-stat-item">
+                    <div class="mission-stat-value" id="missionModalCount">0</div>
+                    <div class="mission-stat-label">🔥 達成者</div>
+                </div>
+            </div>
+            <div class="mission-modal-actions">
+                <button class="mission-action-btn mission-btn-complete" id="missionModalCompleteBtn">
+                    <span>✓</span><span>達成する</span>
+                </button>
+                <button class="mission-action-btn mission-btn-timer" id="missionModalTimerBtn" title="タイマーを開く">
+                    ⏱
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- アップグレードモーダル -->
+    <div id="upgradeModal" class="modal-root" style="display:none;">
+        <div class="modal-backdrop" id="upgradeBackdrop"></div>
+        <div class="modal-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">💪 プランについて</div>
+                <button id="upgradeCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+            </div>
+            <p id="upgradeMessage" style="margin:16px 0;color:var(--text-secondary);font-size:14px;"></p>
+            <div id="currentPlanInfo" style="margin-bottom:16px;padding:12px;background:var(--bg-main);border-radius:10px;font-size:13px;"></div>
+            <div class="plan-options" style="display:flex;flex-direction:column;gap:10px;"></div>
+            <button id="viewPlansBtn" style="margin-top:16px;width:100%;padding:14px;background:linear-gradient(135deg,var(--primary),var(--accent));color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">プランを詳しく見る →</button>
+        </div>
+    </div>
+
+    <!-- 開発者メニューモーダル -->
+    <div id="devModal" class="modal-root" style="display:none;">
+        <div class="modal-backdrop" id="devBackdrop"></div>
+        <div class="modal-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">🛠️ 開発者メニュー</div>
+                <button id="devCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
+            </div>
+            <div style="margin:16px 0;font-size:12px;color:var(--text-muted);">管理ダッシュボードへのリンク（外部ブラウザで開きます）</div>
+            <div class="dev-links" style="display:flex;flex-direction:column;gap:10px;">
+                <button class="dev-link-btn" data-url="https://supabase.com/dashboard/project/ihbxginpxmeqbmhhnaix">
+                    <span style="font-size:20px;">🗄️</span>
+                    <span>Supabase を開く</span>
+                </button>
+                <button class="dev-link-btn" data-url="https://github.com/yashomasho3145-create/List.git">
+                    <span style="font-size:20px;">📂</span>
+                    <span>GitHub を開く</span>
+                </button>
+                <button class="dev-link-btn" data-url="https://dashboard.stripe.com/acct_1SohJuRwoHmxRm8J/test/dashboard">
+                    <span style="font-size:20px;">💳</span>
+                    <span>Stripe を開く</span>
+                </button>
+                <button class="dev-link-btn" data-url="https://lumicreate.xvps.jp/workflow/a6lpEhigwaCm1OfO">
+                    <span style="font-size:20px;">⚙️</span>
+                    <span>n8n を開く</span>
+                </button>
+            </div>
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(13,27,42,0.1);">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:600;font-size:14px;margin-bottom:12px;">⚡ Feature Flags</div>
+                <div class="dev-flag-item" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-main);border-radius:10px;margin-bottom:8px;">
+                    <div>
+                        <div style="font-weight:600;font-size:13px;">課金制限</div>
+                        <div style="font-size:11px;color:var(--text-muted);">ONにすると無料ユーザーに機能制限がかかります</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="flagGatingEnabled" />
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="dev-flag-item" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-main);border-radius:10px;">
+                    <div>
+                        <div style="font-weight:600;font-size:13px;">課金導線表示</div>
+                        <div style="font-size:11px;color:var(--text-muted);">ONにするとアップグレード案内が表示されます</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="flagBillingEnabled" />
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            <div id="devFlagStatus" style="margin-top:12px;font-size:12px;color:var(--text-muted);text-align:center;"></div>
+        </div>
+    </div>
+
+    <!-- タスク追加モーダル -->
+    <div id="addTaskModal" class="modal-root" style="display:none;">
+        <div class="modal-backdrop" id="addTaskBackdrop"></div>
+        <div class="modal-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">タスクを追加</div>
+                <button id="addTaskCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
+            </div>
+            <div class="segment-control" style="margin-top:16px;">
+                <button class="segment-btn active" data-type="mission">🎯 ミッション</button>
+                <button class="segment-btn" data-type="appointment">🕐 予定</button>
+            </div>
+            <input id="addTaskNameInput" type="text" placeholder="タスク名" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:12px;">
+            <div id="missionFields">
+                <input id="addTaskReasonInput" type="text" placeholder="なぜやるの？（任意）" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:14px;color:var(--text-secondary);">
+            </div>
+            <div id="appointmentFields" style="display:none;">
+                <input id="addTaskDatetimeInput" type="datetime-local" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:14px;">
+            </div>
+            <button id="addTaskSubmitBtn" style="margin-top:16px;width:100%;padding:14px;background:linear-gradient(135deg,#ff9f43,#ff6b6b);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">追加する 💪</button>
+        </div>
+    </div>
+
+    <!-- 習慣設定モーダル -->
+    <div id="habitSettingsModal" class="modal-root" style="display:none;">
+        <div class="modal-backdrop" id="habitSettingsBackdrop" onclick="document.getElementById('habitSettingsModal').style.display='none'"></div>
+        <div class="modal-panel" style="max-height:80vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;position:sticky;top:0;background:white;padding-bottom:8px;">
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">⚙ 習慣を設定</div>
+                <button id="habitSettingsCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
+            </div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">各カテゴリから習慣を選んでください（最大6個）</p>
+            <div id="habitPresetList"></div>
+            <button id="habitSettingsSaveBtn" style="margin-top:16px;width:100%;padding:14px;background:linear-gradient(135deg,#ff9f43,#ff6b6b);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;" onclick="(function(){ const ids = Array.from(document.querySelectorAll('.preset-item.selected')).map(el => el.dataset.id); saveHabitSettings(ids); })()">設定を保存</button>
+        </div>
+    </div>
+
+    <!-- 週次振り返りバナー -->
+    <div id="weeklyReflectionBanner" class="weekly-banner" style="display:none;">
+        <div class="weekly-banner-card">
+            <div class="weekly-banner-title">📝 今週の振り返りをしよう</div>
+            <p class="weekly-banner-desc">今週どんなことがあった？<br>記録しておくと成長が見えてくるよ。</p>
+            <div class="weekly-banner-btns">
+                <button class="weekly-banner-write" id="weeklyBannerWriteBtn">振り返りを書く</button>
+                <button class="weekly-banner-later" id="weeklyBannerLaterBtn">後で</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript読み込み（順序重要）-->
+    <script src="js/config.js"></script>
+    <script src="js/swipe.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/task.js"></script>
+    <script src="js/habit.js"></script>
+    <script src="js/journal.js"></script>
+    <script src="js/msc.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/developer.js"></script>
+    <script src="js/app.js"></script>
+    <script src="ios/ios-theme.js"></script>
+    <script src="ios/ios-swipe.js"></script>
+</body>
+</html>

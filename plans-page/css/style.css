@@ -1,0 +1,356 @@
+/* =============================================
+   ムキムキタスくん - プラン詳細ページ
+   ============================================= */
+
+/* === CSS変数（メインアプリと統一）=== */
+:root {
+    --dark-navy: #0d1b2a;
+    --deep-navy: #1b263b;
+    --navy-blue: #415a77;
+    --slate-gray: #778da9;
+    --energy-orange: #ff9f43;
+    --golden-yellow: #feca57;
+    --power-red: #ff6b6b;
+    --success-green: #26de81;
+    --muscle-purple: #a55eea;
+    --gradient-power: linear-gradient(135deg, #ff9f43 0%, #ff6b6b 100%);
+    --gradient-energy: linear-gradient(135deg, #feca57 0%, #ff9f43 100%);
+    --text-primary: #0d1b2a;
+    --text-secondary: #415a77;
+    --text-muted: #778da9;
+    --bg-main: #f8f9fa;
+    --bg-card: #ffffff;
+    --primary: #415a77;
+    --accent: #ff9f43;
+    --border: #e0e1dd;
+}
+
+/* === リセット・ベース === */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+    font-family: 'M PLUS Rounded 1c', -apple-system, system-ui, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+}
+.heading-serif { font-family: 'Noto Serif JP', serif; font-weight: 700; }
+
+/* === ローディング === */
+.loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 16px;
+}
+.loading-emoji { font-size: 48px; animation: bounce 1s infinite; }
+.loading-text { font-size: 14px; color: var(--text-muted); }
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* === ヘッダー === */
+.page-header {
+    background: linear-gradient(135deg, var(--dark-navy), var(--deep-navy));
+    color: white;
+    padding: 32px 20px 24px;
+    text-align: center;
+}
+.header-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 22px;
+}
+.header-emoji { font-size: 28px; }
+.header-sub {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--slate-gray);
+}
+
+/* === セクション共通 === */
+.section-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+.current-plan-section,
+.plans-section,
+.notes-section {
+    padding: 24px 20px;
+}
+
+/* === 現在のプラン === */
+.current-plan-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+}
+.current-plan-name {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+}
+.current-plan-detail {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+
+/* === プラン一覧 === */
+.plans-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.plan-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    transition: box-shadow 0.2s;
+}
+.plan-card.is-max {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, #fff9e6, #fff);
+}
+.plan-card.is-current {
+    border-color: var(--success-green);
+    position: relative;
+}
+.plan-card.is-current::after {
+    content: '現在のプラン';
+    position: absolute;
+    top: -10px;
+    right: 16px;
+    background: var(--success-green);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 10px;
+}
+
+.plan-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.plan-card-name {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+}
+.plan-card.is-max .plan-card-name { color: var(--accent); }
+
+.plan-card-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+.plan-card-price .price-amount {
+    font-size: 22px;
+    color: var(--text-primary);
+}
+
+.plan-card-features {
+    list-style: none;
+    margin-bottom: 16px;
+}
+.plan-card-features li {
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.plan-card-features li::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.feature-yes::before {
+    background: var(--success-green);
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.5 11.5L3 8l1-1 2.5 2.5 5-5 1 1z' fill='white'/%3E%3C/svg%3E");
+    background-size: 16px;
+}
+.feature-no::before {
+    background: var(--border);
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 5l6 6M11 5l-6 6' stroke='%23999' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-size: 16px;
+}
+
+.plan-card-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.plan-card-btn:active { opacity: 0.7; }
+.plan-card-btn.btn-primary {
+    background: var(--gradient-power);
+    color: white;
+}
+.plan-card-btn.btn-current {
+    background: var(--border);
+    color: var(--text-muted);
+    cursor: default;
+}
+.plan-card-btn.btn-downgrade {
+    background: white;
+    border: 2px solid var(--border);
+    color: var(--text-muted);
+    cursor: default;
+    font-size: 12px;
+}
+.plan-recommend {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+    margin-left: 8px;
+}
+
+/* === 注意事項 === */
+.notes-list {
+    list-style: none;
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 16px 20px;
+}
+.notes-list li {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 4px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+.notes-list li::before {
+    content: '・';
+    flex-shrink: 0;
+}
+
+/* === 確認モーダル === */
+.confirm-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+.confirm-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+}
+.confirm-panel {
+    position: relative;
+    background: white;
+    border-radius: 24px 24px 0 0;
+    padding: 28px 24px 32px;
+    width: 100%;
+    max-width: 480px;
+    animation: slideUp 0.3s ease-out;
+}
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+.confirm-title {
+    font-size: 18px;
+    margin-bottom: 12px;
+}
+.confirm-message {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    line-height: 1.7;
+}
+.confirm-buttons {
+    display: flex;
+    gap: 12px;
+}
+.confirm-btn-cancel,
+.confirm-btn-ok {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.confirm-btn-cancel {
+    background: var(--bg-main);
+    color: var(--text-secondary);
+}
+.confirm-btn-ok {
+    background: var(--gradient-power);
+    color: white;
+}
+.confirm-btn-ok:active,
+.confirm-btn-cancel:active { opacity: 0.7; }
+
+/* === 処理中オーバーレイ === */
+.processing-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.processing-overlay .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.processing-overlay .processing-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+/* === 下部余白（LINEブラウザのセーフエリア対策）=== */
+body::after {
+    content: '';
+    display: block;
+    height: 40px;
+}
