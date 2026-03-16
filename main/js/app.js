@@ -40,8 +40,21 @@ async function init() {
             return;
         }
         sessionStorage.removeItem('liff_login_attempt');
-        const profile = await liff.getProfile();
-        userId = profile.userId;
+        try {
+            const profile = await liff.getProfile();
+            userId = profile.userId;
+        } catch (profileError) {
+            // profile scope がない場合は openid の sub で代替
+            const token = liff.getDecodedIDToken();
+            if (token?.sub) {
+                userId = token.sub;
+            } else {
+                // scope が全くない場合は再ログインを強制
+                sessionStorage.removeItem('liff_login_attempt');
+                liff.login({ redirectUri: window.location.origin + window.location.pathname });
+                return;
+            }
+        }
 
         if (ENV === 'DEV' && DEV_ALLOWED_USER_ID !== '<YOUR_LINE_USER_ID>' && userId !== DEV_ALLOWED_USER_ID) {
             document.body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#778da9;font-size:16px;">開発環境のため、アクセスが制限されています。</div>';
