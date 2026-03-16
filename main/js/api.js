@@ -27,7 +27,7 @@ async function apiCall(path, method = 'GET', body = null) {
  * タスクアクション
  */
 async function action(kind, id, extra = {}) {
-    return apiCall('/tasks', 'POST', { action: kind, user_id: userId, task_id: id, ...extra });
+    return apiCall('/tasks/action', 'POST', { action: kind, user_id: userId, task_id: id, ...extra });
 }
 
 /**
@@ -69,7 +69,7 @@ async function purchasePlan(planCode) {
         return;
     }
     try {
-        const data = await apiCall('/billing', 'POST', { user_id: userId, plan_code: planCode });
+        const data = await apiCall('/billing/checkout', 'POST', { user_id: userId, plan_code: planCode });
         if (!data.checkout_url) throw new Error('checkout_url missing');
         const url = data.checkout_url;
         if (typeof liff !== 'undefined' && liff.isInClient && liff.isInClient()) {

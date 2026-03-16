@@ -69,7 +69,7 @@ async function init() {
 
 function bindUI() {
     // タブ切り替え
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    document.querySelectorAll('.tab-nav-item').forEach(btn => {
         btn.onclick = () => switchTab(btn.dataset.tab);
     });
 
@@ -100,8 +100,8 @@ function switchTab(tabId) {
             return;
         }
     }
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === `tab-${tabId}`));
+    document.querySelectorAll('.tab-nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+    document.querySelectorAll('.tab-content').forEach(p => p.classList.toggle('active', p.id === `tab-${tabId}`));
 
     if (tabId === 'status') { loadHabits(); loadMscData(); }
     if (tabId === 'journal') loadJournals();
@@ -110,7 +110,7 @@ function switchTab(tabId) {
 function updateTabLockUI() {
     const gating = isGatingEnabled();
     ['status', 'journal'].forEach(tabId => {
-        const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+        const btn = document.querySelector(`.tab-nav-item[data-tab="${tabId}"]`);
         if (!btn) return;
         const canAccess = tabId === 'status' ? currentEntitlements?.can_status : currentEntitlements?.can_journal;
         const lockIcon = btn.querySelector('.lock-icon');
