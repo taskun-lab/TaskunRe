@@ -60,7 +60,7 @@ async function getHabitsResponse(supabase: ReturnType<typeof supabaseClient>, us
     }));
     const { data: inserted, error: insertError } = await supabase
       .from('user_habits')
-      .insert(inserts)
+      .upsert(inserts, { onConflict: 'user_id,habit_id' })
       .select('*');
     if (insertError) throw new Error(insertError.message);
     userHabits = inserted ?? [];
@@ -157,7 +157,8 @@ Deno.serve(async (req: Request) => {
 
       const monthStr = month.padStart(2, '0');
       const startDate = `${year}-${monthStr}-01`;
-      const endDate = `${year}-${monthStr}-31`;
+      const lastDay = new Date(Number(year), Number(month), 0).getDate();
+      const endDate = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
       const { data: logs, error } = await supabase
         .from('habit_logs')
@@ -251,7 +252,7 @@ Deno.serve(async (req: Request) => {
               is_active: true,
               sort_order: i + 1,
             },
-            { onConflict: 'id' },
+            { onConflict: 'user_id,habit_id' },
           );
         if (error) return errorResponse(error.message, 500);
       }

@@ -509,20 +509,30 @@ function renderHabitPresetsGrid(presets) {
         if (!byCategory[p.category]) byCategory[p.category] = [];
         byCategory[p.category].push(p);
     }
+
+    const CATEGORY_ICONS = { '体力': '💪', '知力': '📚', '精神力': '🧘', '節制': '🚫', '生産性': '💻', '活力': '🌅' };
+
     grid.innerHTML = HABIT_CATEGORIES.map(cat => {
         const items = byCategory[cat] || [];
+        const catIcon = CATEGORY_ICONS[cat] || '✨';
         return `<div class="preset-category">
-            <div class="preset-category-title">${cat}</div>
+            <div class="preset-category-title">${catIcon} ${cat}</div>
             <div class="preset-items">
                 ${items.map(p => `
                     <div class="preset-item ${selectedHabitIds.has(p.habit_id) ? 'selected' : ''}" data-id="${p.habit_id}" data-name="${p.habit_name}" data-cat="${p.category}" data-icon="${p.icon}">
-                        <span>${p.icon}</span><span>${p.habit_name}</span>
+                        <span class="preset-item-icon">${p.icon}</span>
+                        <span class="preset-item-name">${p.habit_name}</span>
                     </div>
                 `).join('')}
+                <div class="preset-item preset-custom-input-row" data-cat="${cat}">
+                    <span class="preset-item-icon">✏️</span>
+                    <input class="preset-custom-input" type="text" placeholder="自由入力…" maxlength="20" onclick="event.stopPropagation()" />
+                </div>
             </div>
         </div>`;
     }).join('');
-    grid.querySelectorAll('.preset-item').forEach(item => {
+
+    grid.querySelectorAll('.preset-item:not(.preset-custom-input-row)').forEach(item => {
         item.onclick = () => {
             const id = item.dataset.id;
             if (selectedHabitIds.has(id)) {
@@ -549,12 +559,29 @@ function bindHabitSettingsModalUI() {
     if (saveBtn) saveBtn.onclick = async () => {
         const grid = document.getElementById('presetGrid');
         if (!grid) return;
+
+        // プリセット選択分
         const selected = Array.from(grid.querySelectorAll('.preset-item.selected')).map(el => ({
             habit_id: el.dataset.id,
             habit_name: el.dataset.name,
             category: el.dataset.cat,
             icon: el.dataset.icon
         }));
+
+        // 自由入力分
+        const CATEGORY_ICONS = { '体力': '💪', '知力': '📚', '精神力': '🧘', '節制': '🚫', '生産性': '💻', '活力': '🌅' };
+        grid.querySelectorAll('.preset-custom-input').forEach(input => {
+            const name = input.value.trim();
+            if (!name) return;
+            const cat = input.closest('.preset-custom-input-row')?.dataset.cat || '';
+            const icon = CATEGORY_ICONS[cat] || '✨';
+            const customId = `custom_${cat}_${name}`.replace(/\s+/g, '_').toLowerCase();
+            selected.push({ habit_id: customId, habit_name: name, category: cat, icon });
+        });
+
+        if (selected.length === 0) { alert('習慣を1つ以上選択または入力してください'); return; }
+        if (selected.length > 6) { alert('最大6つまで設定できます'); return; }
+
         await saveHabitSettings(selected);
         modal.style.display = 'none';
     };

@@ -36,14 +36,21 @@ function renderHabitList(habits) {
             });
         });
     } else {
-        // APIから取得した動的データ
-        container.innerHTML = habitList.map(h =>
-            `<div class="habit-item" data-habit="${h.habit_id}">
+        // APIから取得した動的データ（ストリーク付き）
+        container.innerHTML = habitList.map(h => {
+            const streak = h.streak || 0;
+            const streakHtml = streak > 0
+                ? `<span class="habit-streak">${streak}日連続！🔥</span>`
+                : '';
+            return `<div class="habit-item" data-habit="${h.habit_id}">
                 <div class="habit-checkbox" data-habit="${h.habit_id}"></div>
-                <span class="habit-name">${h.habit_name}</span>
+                <div class="habit-info">
+                    <span class="habit-name">${h.habit_name}</span>
+                    ${streakHtml}
+                </div>
                 <span class="habit-icon">${h.icon || ''}</span>
-            </div>`
-        ).join('');
+            </div>`;
+        }).join('');
         container.querySelectorAll('.habit-item').forEach(item => {
             item.addEventListener('click', e => {
                 e.stopPropagation();

@@ -183,6 +183,12 @@ function switchTab(tabId) {
 
     // スワイプを閉じる
     closeAllSwipeRows();
+
+    // タブ切り替え時に自動データ読み込み
+    if (userId && userId !== 'demo_user') {
+        if (tabId === 'status') { loadHabits(); loadMscData(); }
+        if (tabId === 'journal') loadJournals();
+    }
 }
 
 /**
