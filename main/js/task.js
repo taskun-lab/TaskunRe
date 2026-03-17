@@ -39,6 +39,28 @@ function renderList(payload) {
     high.forEach(t => { t.priority_level = 'high'; highEl.appendChild(createTaskCard(t, false, 'high')); });
     active.forEach(t => { t.priority_level = t.priority_level || 'normal'; activeEl.appendChild(createTaskCard(t, false, t.priority_level)); });
     completed.forEach(t => completedEl.appendChild(createTaskCard(t, true, t.priority_level || 'normal')));
+
+    // 達成タスクアコーディオン更新
+    updateCompletedToggle(completed.length);
+}
+
+function updateCompletedToggle(count) {
+    const countEl = document.getElementById('completedCount');
+    if (countEl) countEl.textContent = count > 0 ? count : '';
+
+    const toggle = document.getElementById('completedToggle');
+    const wrap = document.getElementById('completedListWrap');
+    if (!toggle || !wrap) return;
+
+    // 初回バインドのみ
+    if (!toggle._bound) {
+        toggle._bound = true;
+        toggle.addEventListener('click', () => {
+            const isOpen = toggle.classList.contains('open');
+            toggle.classList.toggle('open', !isOpen);
+            wrap.classList.toggle('open', !isOpen);
+        });
+    }
 }
 
 /**
@@ -140,7 +162,8 @@ function createTaskCard(t, isCompleted, priority) {
     handle.textContent = "☰";
 
     sl.append(contentArea, handle);
-    wrap.append(rail, sl);
+    const editPanel = createCardEditPanel(t);
+    wrap.append(rail, sl, editPanel);
 
     // === 改良版スワイプ機能を適用 ===
     applySwipeToCard(wrap, t, isCompleted, (actionType, taskId) => {
@@ -161,11 +184,11 @@ function createTaskCard(t, isCompleted, priority) {
     // === ドラッグ（並び替え）===
     setupDragHandle(handle, wrap, sl, t);
 
-    // === タップで詳細モーダルを開く ===
+    // === タップでインライン編集パネルを開閉 ===
     sl.addEventListener('click', (e) => {
         if (e.target.closest('.handle') || e.target.closest('button')) return;
         if (wrap.classList.contains('open-left') || wrap.classList.contains('open-right')) return;
-        openTaskDetailModal(t, isCompleted);
+        toggleCardEditPanel(wrap);
     });
 
     // タスクデータを保持
@@ -173,6 +196,89 @@ function createTaskCard(t, isCompleted, priority) {
     wrap.dataset.taskId = t.id;
 
     return wrap;
+}
+
+/**
+ * カード展開編集パネルを作成
+ */
+function createCardEditPanel(t) {
+    const panel = document.createElement("div");
+    panel.className = "card-edit-panel";
+
+    const typeLabel = t.task_type === 'appointment' ? '🕐 予定タスク' : '🎯 中長期タスク';
+    const remindBadge = t.remind_at ? `<span class="card-remind-badge">${formatRemindLabel(t.remind_at)}</span>` : '';
+    const reasonHtml = t.reason ? `<div class="card-reason-text">💡 ${escapeHtml(t.reason)}</div>` : '';
+    const isMission = (t.task_type || 'mission') !== 'appointment';
+
+    panel.innerHTML = `
+        <div class="card-edit-inner">
+            <div class="card-info-badges">
+                <span class="card-type-badge">${typeLabel}</span>
+                ${remindBadge}
+            </div>
+            ${reasonHtml}
+            <div class="form-group" style="margin-bottom:8px;">
+                <input type="text" class="form-input card-edit-name" value="${escapeHtml(t.task_name || t.title || '')}" />
+            </div>
+            <div class="card-type-switcher">
+                <button class="card-type-btn${isMission ? ' active' : ''}" data-type="mission">🎯 中長期</button>
+                <button class="card-type-btn${!isMission ? ' active' : ''}" data-type="appointment">🕐 予定</button>
+            </div>
+            <div class="card-edit-reason-group" style="${isMission ? '' : 'display:none'}">
+                <textarea class="form-input card-edit-reason" rows="2" placeholder="理由・目的（任意）" style="resize:none;margin-bottom:8px;">${escapeHtml(t.reason || '')}</textarea>
+            </div>
+            <div class="card-edit-actions">
+                <button class="card-edit-cancel-btn">キャンセル</button>
+                <button class="card-edit-save-btn">💪 保存</button>
+            </div>
+        </div>`;
+
+    panel.querySelectorAll('.card-type-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            panel.querySelectorAll('.card-type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const rg = panel.querySelector('.card-edit-reason-group');
+            if (rg) rg.style.display = btn.dataset.type === 'mission' ? 'block' : 'none';
+        });
+    });
+
+    panel.querySelector('.card-edit-cancel-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const w = panel.closest('.card');
+        if (w) toggleCardEditPanel(w);
+    });
+
+    panel.querySelector('.card-edit-save-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const newTitle = panel.querySelector('.card-edit-name').value.trim();
+        const newType = panel.querySelector('.card-type-btn.active')?.dataset.type || t.task_type || 'mission';
+        const newReason = panel.querySelector('.card-edit-reason').value.trim() || null;
+        const oldTitle = t.task_name || t.title || '';
+        const promises = [];
+        if (newTitle && newTitle !== oldTitle) {
+            promises.push(action("rename", t.id, { task_name: newTitle }));
+        }
+        if (newType !== (t.task_type || 'mission') || newReason !== (t.reason || null)) {
+            promises.push(action("update_type", t.id, { task_type: newType, reason: newReason }));
+        }
+        if (promises.length > 0) await Promise.all(promises);
+        const w = panel.closest('.card');
+        if (w) toggleCardEditPanel(w);
+    });
+
+    return panel;
+}
+
+/**
+ * カード編集パネルのトグル
+ */
+function toggleCardEditPanel(wrap) {
+    const isOpen = wrap.classList.contains('expanded');
+    if (!isOpen) {
+        document.querySelectorAll('.card.expanded').forEach(c => c.classList.remove('expanded'));
+    }
+    wrap.classList.toggle('expanded', !isOpen);
 }
 
 /**

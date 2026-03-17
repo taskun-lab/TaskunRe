@@ -232,58 +232,7 @@ function openTaskDetailModal(t, isCompleted) {
 }
 
 function bindTaskDetailModalUI() {
-    const modal = document.getElementById('taskDetailModal');
-    const close = () => { modal.classList.remove('visible'); currentTaskDetailData = null; };
-
-    document.getElementById('taskDetailBackdrop').onclick = close;
-    document.getElementById('closeTaskDetail').onclick = close;
-    document.getElementById('taskDetailCloseBtn').onclick = close;
-    document.getElementById('closeTaskEdit').onclick = close;
-
-    // 編集モード
-    document.getElementById('taskDetailEditBtn').onclick = () => {
-        if (!currentTaskDetailData) return;
-        const t = currentTaskDetailData;
-        document.getElementById('taskViewContent').classList.add('hidden');
-        document.getElementById('taskEditContent').classList.add('active');
-        document.getElementById('editTaskName').value = t.task_name || t.title || '';
-        document.getElementById('editTaskReason').value = t.reason || '';
-
-        // タスクタイプセレクタ初期値
-        const currentType = t.task_type || 'mission';
-        setEditTaskType(currentType);
-        setTimeout(() => document.getElementById('editTaskName').focus(), 50);
-    };
-
-    // タイプ切替ボタン
-    document.getElementById('editTypeMission').onclick = () => setEditTaskType('mission');
-    document.getElementById('editTypeAppointment').onclick = () => setEditTaskType('appointment');
-
-    // 編集キャンセル
-    document.getElementById('taskCancelEditBtn').onclick = () => {
-        document.getElementById('taskViewContent').classList.remove('hidden');
-        document.getElementById('taskEditContent').classList.remove('active');
-    };
-
-    // 編集保存
-    document.getElementById('taskSaveEditBtn').onclick = async () => {
-        if (!currentTaskDetailData) return;
-        const t = currentTaskDetailData;
-        const newTitle = document.getElementById('editTaskName').value.trim();
-        const newType = document.querySelector('#taskEditContent .segment-btn.active')?.dataset.type || t.task_type || 'mission';
-        const newReason = document.getElementById('editTaskReason').value.trim() || null;
-
-        const oldTitle = t.task_name || t.title || '';
-        const promises = [];
-        if (newTitle && newTitle !== oldTitle) {
-            promises.push(action("rename", t.id, { task_name: newTitle }));
-        }
-        if (newType !== t.task_type || newReason !== (t.reason || null)) {
-            promises.push(action("update_type", t.id, { task_type: newType, reason: newReason }));
-        }
-        await Promise.all(promises);
-        close();
-    };
+    // タスク詳細はカードインライン編集に移行済み
 }
 
 // === 詳細モーダル ===

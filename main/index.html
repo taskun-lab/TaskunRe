@@ -15,9 +15,18 @@
 <body>
 
     <nav class="tab-nav">
-        <div class="tab-nav-item active" data-tab="list">リスト</div>
-        <div class="tab-nav-item" data-tab="status">ステータス</div>
-        <div class="tab-nav-item" data-tab="journal">ジャーナル</div>
+        <div class="tab-nav-item active" data-tab="list">
+            <img src="images/tab/リストロゴ.png" class="tab-icon" alt=""/>
+            <span>リスト</span>
+        </div>
+        <div class="tab-nav-item" data-tab="status">
+            <img src="images/tab/ステータスロゴ.png" class="tab-icon" alt=""/>
+            <span>ステータス</span>
+        </div>
+        <div class="tab-nav-item" data-tab="journal">
+            <img src="images/tab/ジャーナルロゴ.png" class="tab-icon" alt=""/>
+            <span>ジャーナル</span>
+        </div>
     </nav>
 
     <!-- リストタブ -->
@@ -39,8 +48,15 @@
             <div id="critical" class="list"></div>
             <div id="high" class="list"></div>
             <div id="active" class="list"></div>
-            <div class="divider-label">✅ 達成タスク</div>
-            <div id="completed" class="list"></div>
+            <div class="completed-section">
+                <div class="completed-section-header" id="completedToggle">
+                    <div class="completed-section-title">✅ 達成タスク <span class="completed-section-count" id="completedCount"></span></div>
+                    <span class="completed-section-arrow">▼</span>
+                </div>
+                <div class="completed-list-wrap" id="completedListWrap">
+                    <div id="completed" class="list"></div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -272,51 +288,6 @@
         </div>
     </div>
 
-    <!-- タスク詳細モーダル -->
-    <div id="taskDetailModal" class="modal-root">
-        <div class="modal-backdrop" id="taskDetailBackdrop"></div>
-        <div class="modal-panel" style="max-height:80vh;overflow-y:auto;">
-            <div id="taskViewContent" class="task-view-content">
-                <div class="task-modal-header">
-                    <div>
-                        <div class="task-modal-priority" id="taskModalPriority"></div>
-                        <div class="task-modal-title" id="taskModalTitle"></div>
-                    </div>
-                    <button id="closeTaskDetail" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
-                </div>
-                <div class="task-modal-info" id="taskModalInfo"></div>
-                <div class="task-modal-actions">
-                    <button class="task-modal-btn task-btn-close" id="taskDetailCloseBtn">閉じる</button>
-                    <button class="task-modal-btn task-btn-edit" id="taskDetailEditBtn">✏️ 編集</button>
-                </div>
-            </div>
-            <div id="taskEditContent" class="task-edit-form">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;margin-top:10px;">
-                    <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">📝 タスクを編集</div>
-                    <button id="closeTaskEdit" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">タスク名</label>
-                    <input type="text" class="form-input" id="editTaskName" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">タスクタイプ</label>
-                    <div style="display:flex;gap:8px;">
-                        <button class="segment-btn active" data-type="mission" id="editTypeMission" style="flex:1;padding:10px;border:2px solid var(--primary);border-radius:10px;background:var(--primary);color:white;font-weight:700;cursor:pointer;font-size:13px;">🎯 中長期タスク</button>
-                        <button class="segment-btn" data-type="appointment" id="editTypeAppointment" style="flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:white;color:var(--text-main);font-weight:600;cursor:pointer;font-size:13px;">🕐 予定タスク</button>
-                    </div>
-                </div>
-                <div class="form-group" id="editReasonGroup">
-                    <label class="form-label">理由・目的（任意）</label>
-                    <textarea class="form-input" id="editTaskReason" rows="2" placeholder="なぜこのタスクが重要ですか？" style="resize:none;"></textarea>
-                </div>
-                <div class="task-modal-actions">
-                    <button class="task-modal-btn task-btn-close" id="taskCancelEditBtn">キャンセル</button>
-                    <button class="task-modal-btn task-btn-save" id="taskSaveEditBtn">💪 保存</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- 詳細モーダル -->
     <div id="detailModal" class="modal-root">

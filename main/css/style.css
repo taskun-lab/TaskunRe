@@ -46,44 +46,39 @@ body {
 }
 .heading-serif { font-family: 'Noto Serif JP', serif; font-weight: 700; }
 
-/* === タブナビゲーション === */
+/* === タブナビゲーション（底部固定） === */
 .tab-nav {
-    position: sticky; top: 0; left: 0; right: 0;
-    background: var(--gradient-dark);
-    display: flex; padding: 12px 12px 0; gap: 4px;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(248, 249, 250, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
     z-index: 100;
-    box-shadow: 0 4px 20px rgba(13, 27, 42, 0.3);
+    border-top: 1px solid rgba(13, 27, 42, 0.1);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .tab-nav-item {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    font-size: 13px; font-weight: 500; color: var(--slate-gray);
-    cursor: pointer; padding: 12px 16px 14px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px 12px 0 0;
-    position: relative;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    flex: 1;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-bottom: none;
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 8px 4px 10px; gap: 3px;
+    font-size: 10px; font-weight: 500; color: var(--slate-gray);
+    cursor: pointer; transition: color 0.2s ease;
+    position: relative; border: none; background: none;
 }
-.tab-nav-item:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-light); }
-.tab-nav-item.active {
-    background: var(--bg-main); color: var(--energy-orange); font-weight: 700;
-    border-color: rgba(255, 159, 67, 0.3);
-    box-shadow: 0 -4px 15px rgba(255, 159, 67, 0.2);
-    z-index: 2;
-}
-.tab-nav-item.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: var(--bg-main); }
-.tab-nav-item.active::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 30px; height: 3px; background: var(--gradient-power); border-radius: 0 0 3px 3px; }
-.tab-nav-item span { font-size: 18px; transition: transform 0.3s ease; }
-.tab-nav-item.active span { animation: tabIconBounce 0.5s ease; }
+.tab-nav-item:active { opacity: 0.7; }
+.tab-nav-item.active { color: var(--energy-orange); font-weight: 700; }
+.tab-nav-item.active::before, .tab-nav-item.active::after { display: none; }
+.tab-icon { width: 26px; height: 26px; object-fit: contain; opacity: 0.35; transition: opacity 0.2s ease, transform 0.2s ease; }
+.tab-nav-item.active .tab-icon { opacity: 1; transform: scale(1.1); }
 @keyframes tabIconBounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
-.tab-nav-item.locked { opacity: 0.7; }
-.tab-nav-item .lock-icon { font-size: 10px; margin-left: 4px; }
+.tab-nav-item.locked { opacity: 0.6; }
+.tab-nav-item .lock-icon { font-size: 9px; }
 
 /* === タブコンテンツ === */
 .tab-content { display: none; animation: fadeIn 0.3s ease; }
 .tab-content.active { display: block; }
+.tab-content header { position: sticky; top: 0; z-index: 10; }
+.tab-content main { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 #tab-status {
     min-height: 100vh;
     min-height: 100dvh;
@@ -91,7 +86,7 @@ body {
 #tab-status main {
     min-height: calc(100vh - 60px);
     min-height: calc(100dvh - 60px);
-    padding-bottom: 100px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -134,7 +129,7 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 /* === カード基本スタイル === */
 .card {
     position: relative;
-    height: 68px;
+    min-height: 68px;
     background: var(--bg-card);
     border-bottom: 1px solid rgba(13, 27, 42, 0.06);
     overflow: hidden;
@@ -187,95 +182,79 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .card.completed .title { color: var(--text-muted); text-decoration: line-through; }
 .card.completed { background: rgba(38, 222, 129, 0.05); }
 .card.completed.priority-critical, .card.completed.priority-high { opacity: 0.6; }
+
+/* === 達成タスクアコーディオン === */
+.completed-section { margin-top: 8px; }
+.completed-section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; cursor: pointer;
+    background: rgba(38, 222, 129, 0.06);
+    border-top: 1px solid rgba(38, 222, 129, 0.2);
+    border-bottom: 1px solid rgba(38, 222, 129, 0.2);
+    transition: background 0.2s;
+}
+.completed-section-header:hover { background: rgba(38, 222, 129, 0.1); }
+.completed-section-header.open { background: rgba(38, 222, 129, 0.1); }
+.completed-section-title { font-size: 13px; font-weight: 600; color: #26b86a; display: flex; align-items: center; gap: 8px; }
+.completed-section-count { font-size: 11px; background: rgba(38,222,129,0.15); color: #26b86a; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+.completed-section-arrow { font-size: 12px; color: #26b86a; transition: transform 0.3s ease; }
+.completed-section-header.open .completed-section-arrow { transform: rotate(180deg); }
+.completed-list-wrap { max-height: 0; overflow: hidden; transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
+.completed-list-wrap.open { max-height: 3000px; }
+
 .card.dragging { opacity: 0.95; box-shadow: 0 12px 30px rgba(13, 27, 42, 0.25); z-index: 100; transform: scale(1.02); border-radius: 12px; }
 .card.drag-placeholder { background: rgba(255, 159, 67, 0.1); border: 2px dashed var(--energy-orange); }
 .card.drag-placeholder .sl, .card.drag-placeholder .actions-rail { visibility: hidden; }
 
-/* === カード展開編集パネル（レガシー）=== */
+/* === カード展開編集パネル === */
 .card-edit-panel {
-    position: relative;
-    z-index: 3;
-    background: var(--bg-card);
-    border-top: 1px solid rgba(13, 27, 42, 0.08);
-    padding: 0 14px;
     max-height: 0;
     overflow: hidden;
-    transition: max-height 300ms ease-out, padding 300ms ease-out;
-}
-.card.expanded .card-edit-panel {
-    max-height: 300px;
-    padding: 6px 7px 7px;
-}
-.edit-detail-view {}
-.edit-detail-title {
-    font-size: 4px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 6px;
-    word-break: break-word;
-    white-space: normal;
-    line-height: 1.5;
-}
-.edit-detail-meta {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-}
-.card-edit-panel .edit-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-.card-edit-panel .edit-input {
-    flex: 1;
-    padding: 10px 12px;
-    border: 2px solid rgba(13, 27, 42, 0.12);
-    border-radius: 8px;
-    font-size: 14px;
+    transition: max-height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
     background: var(--bg-main);
-    color: var(--text-primary);
-    outline: none;
-    transition: border-color 0.2s;
+    border-top: 1px dashed rgba(13, 27, 42, 0.1);
 }
-.card-edit-panel .edit-input:focus {
-    border-color: var(--energy-orange);
+.card.expanded .card-edit-panel { max-height: 600px; }
+.card-edit-inner { padding: 12px 14px 16px; }
+.card-info-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.card-type-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    background: rgba(255, 159, 67, 0.12); color: var(--energy-orange); font-weight: 600;
 }
-.card-edit-panel .edit-btn {
-    padding: 8px 14px;
-    border: none;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
+.card-remind-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    background: rgba(65, 90, 119, 0.1); color: var(--slate-gray); font-weight: 500;
 }
-.card-edit-panel .edit-start {
-    margin-top: 8px;
-    background: rgba(13, 27, 42, 0.06);
-    color: var(--text-secondary);
-    font-size: 4px;
-    padding: 6px 6px;
+.card-reason-text {
+    font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;
+    padding: 7px 10px; background: rgba(65, 90, 119, 0.05); border-radius: 8px; line-height: 1.5;
 }
-.card-edit-panel .edit-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+.card-edit-name { width: 100%; margin-bottom: 8px; }
+.card-type-switcher { display: flex; gap: 6px; margin-bottom: 8px; }
+.card-type-btn {
+    flex: 1; padding: 9px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; border: 2px solid var(--border);
+    background: white; color: var(--text-secondary); font-family: inherit;
 }
-.card-edit-panel .edit-save {
-    background: var(--energy-orange);
-    color: white;
+.card-type-btn.active { border-color: var(--dark-navy); background: var(--dark-navy); color: white; }
+.card-edit-reason-group { margin-bottom: 10px; }
+.card-edit-reason { width: 100%; resize: none; }
+.card-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.card-edit-cancel-btn {
+    padding: 9px 18px; border-radius: 10px; border: 1px solid rgba(13,27,42,0.15);
+    background: white; font-size: 13px; cursor: pointer; color: var(--text-secondary); font-family: inherit;
 }
-.card-edit-panel .edit-cancel {
-    background: rgba(26, 35, 45, 0.08);
-    color: var(--text-secondary);
+.card-edit-save-btn {
+    padding: 9px 18px; border-radius: 10px; border: none;
+    background: var(--gradient-power); color: white; font-size: 13px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
 }
 
 /* === スワイプ可能なカード（SwipeableRow）構造 === */
 .sl {
     position: relative;
     width: 100%;
-    height: 100%;
+    min-height: 68px;
     display: flex;
     align-items: stretch;
     padding: 6px 14px;
@@ -286,7 +265,8 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 
 .actions-rail {
     position: absolute;
-    inset: 0;
+    top: 0; left: 0; right: 0;
+    height: 68px;
     display: flex;
     justify-content: space-between;
     align-items: center;
