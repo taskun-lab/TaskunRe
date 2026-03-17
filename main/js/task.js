@@ -1,156 +1,350 @@
 /* =============================================
-   ムキムキタスくん３ - タスク管理（Phase2: 2種別対応）
+   ムキムキタスくん - タスク管理
    ============================================= */
 
+// DOM要素
+const criticalEl = document.getElementById("critical");
+const highEl = document.getElementById("high");
+const activeEl = document.getElementById("active");
+const completedEl = document.getElementById("completed");
+
+/**
+ * タスクリスト読み込み
+ */
 async function loadList() {
     try {
         const data = await apiCall(`/tasks/list?user_id=${encodeURIComponent(userId)}`);
         renderList(data);
     } catch (e) {
-        console.error('loadList error:', e);
+        console.error("タスク取得エラー:", e);
+        renderList({ critical: [], high: [], active: [], completed: [] });
     }
 }
 
+/**
+ * タスクリストをレンダリング
+ */
 function renderList(payload) {
-    const groups = { critical: payload.critical || [], high: payload.high || [], active: payload.active || [], completed: payload.completed || [] };
-    ['critical', 'high', 'active'].forEach(g => {
-        const el = document.getElementById(g);
-        if (!el) return;
-        el.innerHTML = '';
-        groups[g].forEach(t => el.appendChild(createTaskCard(t, false, g)));
-    });
-    const compEl = document.getElementById('completed');
-    if (compEl) {
-        compEl.innerHTML = '';
-        groups.completed.forEach(t => compEl.appendChild(createTaskCard(t, true, 'completed')));
-    }
+    criticalEl.innerHTML = '';
+    highEl.innerHTML = '';
+    activeEl.innerHTML = '';
+    completedEl.innerHTML = '';
+
+    const critical = Array.isArray(payload.critical) ? payload.critical : [];
+    const high = Array.isArray(payload.high) ? payload.high : [];
+    const active = Array.isArray(payload.active) ? payload.active : [];
+    const completed = Array.isArray(payload.completed) ? payload.completed : [];
+
+    critical.forEach(t => { t.priority_level = 'critical'; criticalEl.appendChild(createTaskCard(t, false, 'critical')); });
+    high.forEach(t => { t.priority_level = 'high'; highEl.appendChild(createTaskCard(t, false, 'high')); });
+    active.forEach(t => { t.priority_level = t.priority_level || 'normal'; activeEl.appendChild(createTaskCard(t, false, t.priority_level)); });
+    completed.forEach(t => completedEl.appendChild(createTaskCard(t, true, t.priority_level || 'normal')));
 }
 
+/**
+ * タスクカードを作成（スワイプ機能付き）
+ */
 function createTaskCard(t, isCompleted, priority) {
-    const isAppointment = t.task_type === 'appointment';
-    const wrap = document.createElement('div');
-    wrap.className = `swipe-wrap${isCompleted ? ' completed-card' : ''}`;
-    wrap.dataset.id = t.id;
+    const wrap = document.createElement("div");
+    wrap.className = `card priority-${priority}`;
+    if (isCompleted) wrap.classList.add("completed");
 
-    const sl = document.createElement('div');
-    sl.className = `task-card${isAppointment ? ' task-appointment' : ' task-mission'}${isCompleted ? ' is-completed' : ''}`;
+    // アクションレール（左右のボタン）
+    const rail = document.createElement("div");
+    rail.className = "actions-rail";
 
-    // タイムスタンプ表示（予定タスク）
-    let timeHtml = '';
-    if (isAppointment && t.remind_at) {
-        const d = new Date(t.remind_at);
-        timeHtml = `<span class="task-time">${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}</span>`;
-    }
-
-    // アイコン
-    const icon = isAppointment ? '🕐' : '🎯';
-
-    // 理由表示（ミッションタスク）
-    let reasonHtml = '';
-    if (!isAppointment && t.reason) {
-        reasonHtml = `<div class="task-reason">└ ${t.reason}</div>`;
-    }
-
-    // リマインドラベル
-    const remindLabel = t.remind_at ? formatRemindLabel(t.remind_at) : '';
-
-    sl.innerHTML = `
-        <div class="task-main" style="display:flex;align-items:flex-start;gap:6px;flex:1;min-width:0;">
-            <span style="font-size:14px;flex-shrink:0;">${icon}</span>
-            <div style="flex:1;min-width:0;">
-                <div style="display:flex;align-items:center;gap:4px;">
-                    ${timeHtml}
-                    <span class="task-name${isCompleted ? ' strikethrough' : ''}">${escapeHtml(t.task_name || '')}</span>
-                </div>
-                ${reasonHtml}
-                ${remindLabel ? `<div class="remind-label">${remindLabel}</div>` : ''}
-            </div>
-        </div>
-        <div class="drag-handle" title="並び替え">☰</div>
-    `;
-
-    // 左ボタン（完了・通知）
-    const leftBtns = document.createElement('div');
-    leftBtns.className = 'swipe-left-btns';
+    // 左側アクション（完了/未完了）
+    const left = document.createElement("div");
+    left.className = "actions-left";
     if (!isCompleted) {
-        leftBtns.innerHTML = `
-            <button class="swipe-btn btn-complete" data-id="${t.id}">✓<br><span style="font-size:9px;">完了</span></button>
-            <button class="swipe-btn btn-remind" data-id="${t.id}">🔔<br><span style="font-size:9px;">通知</span></button>
-        `;
+        left.append(
+            mkBtn("完了", () => action("complete", t.id), "btn-complete"),
+            mkBtn("通知", () => openRemind(t), "btn-plus2h")
+        );
     } else {
-        leftBtns.innerHTML = `<button class="swipe-btn btn-uncomplete" data-id="${t.id}">↩<br><span style="font-size:9px;">戻す</span></button>`;
+        left.append(mkBtn("未完", () => {
+            if (checkTaskLimit()) action("uncomplete", t.id);
+        }, "btn-complete"));
     }
 
-    // 右ボタン（詳細・優先度・削除）
-    const rightBtns = document.createElement('div');
-    rightBtns.className = 'swipe-right-btns';
-    rightBtns.innerHTML = `
-        <button class="swipe-btn btn-detail" data-id="${t.id}">📋<br><span style="font-size:9px;">詳細</span></button>
-        <button class="swipe-btn btn-priority" data-id="${t.id}">⭐<br><span style="font-size:9px;">優先</span></button>
-        <button class="swipe-btn btn-delete" data-id="${t.id}">🗑<br><span style="font-size:9px;">削除</span></button>
-    `;
+    // 右側アクション
+    const right = document.createElement("div");
+    right.className = "actions-right";
+    right.append(
+        mkBtn("詳細", () => openDetail(t), "btn-detail"),
+        mkBtn("優先", () => openPriorityModal(t), "btn-priority"),
+        mkBtn("削除", () => action("delete", t.id), "btn-delete")
+    );
 
-    wrap.appendChild(leftBtns);
-    wrap.appendChild(sl);
-    wrap.appendChild(rightBtns);
+    rail.append(left, right);
 
-    // イベント
-    sl.onclick = (e) => {
-        if (isDraggingCard) return;
-        if (e.target.closest('.drag-handle')) return;
+    // メインコンテンツ（スライド部分）
+    const sl = document.createElement("div");
+    sl.className = "sl";
+
+    // コンテンツエリア（タイトル＋リマインド）
+    const contentArea = document.createElement("div");
+    contentArea.className = "card-content";
+
+    const titleArea = document.createElement("div");
+    titleArea.className = "card-title-area";
+
+    // 優先順位バッジ
+    if (priority === 'critical') {
+        const badge = document.createElement("span");
+        badge.className = "priority-badge";
+        badge.textContent = "最重要";
+        titleArea.appendChild(badge);
+    } else if (priority === 'high') {
+        const badge = document.createElement("span");
+        badge.className = "priority-badge";
+        badge.textContent = "重要";
+        titleArea.appendChild(badge);
+    }
+
+    // タスクタイプアイコン（Phase2）
+    if (t.task_type === 'appointment') {
+        const icon = document.createElement("span");
+        icon.textContent = "🕐";
+        icon.style.cssText = "font-size:13px;flex-shrink:0;";
+        titleArea.appendChild(icon);
+    } else if (t.task_type === 'mission') {
+        const icon = document.createElement("span");
+        icon.textContent = "🎯";
+        icon.style.cssText = "font-size:13px;flex-shrink:0;";
+        titleArea.appendChild(icon);
+    }
+
+    const titleEl = document.createElement("span");
+    titleEl.className = "title";
+    titleEl.textContent = t.task_name || t.title || "(無題)";
+    titleArea.appendChild(titleEl);
+    contentArea.appendChild(titleArea);
+
+    // リマインド表示（タイトル下に配置）
+    if (t.remind_at) {
+        const remindEl = document.createElement("div");
+        remindEl.className = "remindAt";
+        remindEl.textContent = formatRemindLabel(t.remind_at);
+        contentArea.appendChild(remindEl);
+    }
+
+    // ドラッグハンドル
+    const handle = document.createElement("div");
+    handle.className = "handle";
+    handle.textContent = "☰";
+
+    sl.append(contentArea, handle);
+    wrap.append(rail, sl);
+
+    // === 改良版スワイプ機能を適用 ===
+    applySwipeToCard(wrap, t, isCompleted, (actionType, taskId) => {
+        if (actionType === 'complete') {
+            action("complete", taskId);
+        } else if (actionType === 'uncomplete') {
+            if (checkTaskLimit()) action("uncomplete", taskId);
+        } else if (actionType === 'delete') {
+            action("delete", taskId);
+        }
+    });
+
+    // === ドラッグ（並び替え）===
+    setupDragHandle(handle, wrap, sl, t);
+
+    // === タップで詳細モーダルを開く ===
+    sl.addEventListener('click', (e) => {
+        if (e.target.closest('.handle') || e.target.closest('button')) return;
+        if (wrap.classList.contains('open-left') || wrap.classList.contains('open-right')) return;
         openTaskDetailModal(t, isCompleted);
-    };
-    leftBtns.querySelector('.btn-complete')?.addEventListener('click', () => {
-        action('complete', t.id).then(renderList);
-    });
-    leftBtns.querySelector('.btn-uncomplete')?.addEventListener('click', () => {
-        action('uncomplete', t.id).then(renderList);
-    });
-    leftBtns.querySelector('.btn-remind')?.addEventListener('click', () => openRemind(t));
-    rightBtns.querySelector('.btn-detail').addEventListener('click', () => openDetail(t));
-    rightBtns.querySelector('.btn-priority').addEventListener('click', () => openPriorityModal(t));
-    rightBtns.querySelector('.btn-delete').addEventListener('click', () => {
-        action('delete', t.id).then(renderList);
     });
 
-    applySwipeToCard(wrap, t, isCompleted);
-    setupDragHandle(wrap.querySelector('.drag-handle'), wrap, sl, t);
+    // タスクデータを保持
+    wrap.__taskData = t;
+    wrap.dataset.taskId = t.id;
 
     return wrap;
 }
 
+/**
+ * ドラッグハンドルのセットアップ
+ */
 function setupDragHandle(handle, wrap, sl, t) {
-    if (!handle) return;
-    handle.addEventListener('touchstart', (e) => {
+    const startDrag = (startEvent) => {
+        startEvent.preventDefault();
+        startEvent.stopPropagation();
+
+        const card = wrap;
+        const list = card.parentElement;
+        if (!list) return;
+
         isDraggingCard = true;
-        closeAllSwipeRows();
-    }, { passive: true });
-    handle.addEventListener('touchend', () => {
-        setTimeout(() => { isDraggingCard = false; }, 100);
-    });
+        closeAllSwipeRows(); // 開いているスワイプを閉じる
+
+        card.classList.remove("open-left", "open-right");
+        sl.style.transition = "none";
+        sl.style.transform = "translateX(0)";
+
+        const cardRect = card.getBoundingClientRect();
+        const dragStartY = startEvent.clientY || (startEvent.touches && startEvent.touches[0].clientY);
+        const cardStartTop = cardRect.top;
+        const cardHeight = cardRect.height;
+        const cardWidth = cardRect.width;
+
+        // ドラッグ用クローン
+        const dragClone = card.cloneNode(true);
+        dragClone.style.cssText = `position:fixed;left:${cardRect.left}px;top:${cardRect.top}px;width:${cardWidth}px;height:${cardHeight}px;pointer-events:none;z-index:1000;opacity:0.95;box-shadow:0 8px 20px rgba(0,0,0,0.3);transition:none;`;
+        dragClone.classList.add("dragging");
+        document.body.appendChild(dragClone);
+
+        card.style.opacity = "0.3";
+        card.style.transition = "none";
+        document.body.style.userSelect = "none";
+
+        const getY = ev => ev.touches?.length ? ev.touches[0].clientY : ev.clientY;
+
+        const updatePosition = (y) => {
+            const deltaY = y - dragStartY;
+            dragClone.style.top = (cardStartTop + deltaY) + "px";
+
+            const cloneCenterY = cardStartTop + deltaY + cardHeight / 2;
+            const siblings = Array.from(list.querySelectorAll(".card"));
+
+            for (const sibling of siblings) {
+                if (sibling === card) continue;
+                const siblingRect = sibling.getBoundingClientRect();
+                if (cloneCenterY < siblingRect.top + siblingRect.height / 2) {
+                    if (card.nextSibling !== sibling) list.insertBefore(card, sibling);
+                    return;
+                }
+            }
+            if (list.lastElementChild !== card) list.appendChild(card);
+        };
+
+        const onMove = ev => {
+            ev.preventDefault();
+            updatePosition(getY(ev));
+        };
+
+        const onUp = () => {
+            document.removeEventListener("pointermove", onMove);
+            document.removeEventListener("pointerup", onUp);
+            document.removeEventListener("touchmove", onMove);
+            document.removeEventListener("touchend", onUp);
+
+            dragClone.remove();
+            card.style.opacity = "";
+            card.style.transition = "";
+            card.classList.remove("open-left", "open-right");
+
+            const slEl = card.querySelector(".sl");
+            if (slEl) {
+                slEl.style.transition = "";
+                slEl.style.transform = "translateX(0)";
+            }
+
+            document.body.style.userSelect = "";
+            setTimeout(() => isDraggingCard = false, 50);
+            saveSortOrder();
+        };
+
+        document.addEventListener("pointermove", onMove, { passive: false });
+        document.addEventListener("pointerup", onUp);
+        document.addEventListener("touchmove", onMove, { passive: false });
+        document.addEventListener("touchend", onUp);
+    };
+
+    handle.addEventListener("pointerdown", e => { e.preventDefault(); startDrag(e); });
+    handle.addEventListener("touchstart", e => { e.preventDefault(); e.stopPropagation(); startDrag(e); }, { passive: false });
 }
 
-function saveSortOrder() {
+/**
+ * 並び順保存
+ */
+async function saveSortOrder() {
+    if (!userId) return;
     const orders = [];
-    document.querySelectorAll('.swipe-wrap[data-id]').forEach((el, i) => {
-        orders.push({ id: parseInt(el.dataset.id), sort_order: i });
+    [criticalEl, highEl, activeEl, completedEl].forEach((listEl, idx) => {
+        const section = ['critical', 'high', 'active', 'completed'][idx];
+        listEl.querySelectorAll('.card').forEach((card, index) => {
+            const t = card.__taskData;
+            if (t) orders.push({ id: t.id, sort_order: index, section });
+        });
     });
-    action('sort_update', null, { orders });
+    if (orders.length) await action("sort_update", null, { orders });
 }
 
-function addTask() { showAddTaskModal(); }
+/**
+ * タスク追加（インライン入力）
+ */
+async function addTask() {
+    const input = document.getElementById('newTitle');
+    const title = input.value.trim();
+    if (!title) return;
 
+    if (!checkTaskLimit()) return;
+
+    await action("create", null, { task_name: title });
+    input.value = "";
+}
+
+/**
+ * 現在の未完了タスク数を取得
+ */
 function getTodoCount() {
-    return document.querySelectorAll('#critical .swipe-wrap, #high .swipe-wrap, #active .swipe-wrap').length;
+    const criticalCount = criticalEl.querySelectorAll('.card:not(.completed)').length;
+    const highCount = highEl.querySelectorAll('.card:not(.completed)').length;
+    const activeCount = activeEl.querySelectorAll('.card:not(.completed)').length;
+    return criticalCount + highCount + activeCount;
 }
 
+/**
+ * タスク枠制限チェック
+ */
 function checkTaskLimit() {
-    if (!currentEntitlements) return true;
-    const limit = currentEntitlements.task_limit;
-    if (limit == null) return true;
-    return getTodoCount() < limit;
+    // gating_enabled が false なら制限なし
+    if (typeof isGatingEnabled === 'function' && !isGatingEnabled()) {
+        return true;
+    }
+
+    const taskLimit = currentEntitlements?.task_limit ?? 3;
+    const role = currentEntitlements?.role || 'user';
+
+    // developer/adminは制限なし
+    if (role === 'developer' || role === 'admin') {
+        return true;
+    }
+
+    const currentCount = getTodoCount();
+    if (currentCount >= taskLimit) {
+        showUpgradeModal('TODO枠');
+        return false;
+    }
+    return true;
 }
 
+/**
+ * ボタン作成ヘルパー
+ */
+function mkBtn(label, onClick, cls) {
+    const b = document.createElement("button");
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.addEventListener("click", e => {
+        e.stopPropagation();
+        e.preventDefault();
+        onClick();
+    });
+    return b;
+}
+
+/**
+ * HTMLエスケープ
+ */
 function escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
