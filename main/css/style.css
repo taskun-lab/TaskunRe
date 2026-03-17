@@ -40,7 +40,7 @@
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
-    font-family: 'M PLUS Rounded 1c', -apple-system, system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
     background: var(--bg-main);
     color: var(--text-primary);
 }
@@ -94,14 +94,8 @@ body {
 header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1px solid rgba(13, 27, 42, 0.08); z-index: 10; }
 .bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; gap: 8px; }
 .bar-title { font-family: 'Noto Serif JP', serif; font-weight: 700; font-size: 16px; color: var(--dark-navy); display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; }
-.bar-title::before { content: '💪'; font-size: 18px; }
 .bar-btn { padding: 6px 12px; border-radius: 20px; border: 2px solid var(--energy-orange); font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: var(--energy-orange); transition: all 0.3s ease; flex-shrink: 0; }
-.bar-btn:hover { background: var(--energy-orange); color: white; transform: rotate(180deg); }
-.bar-add { display: flex; gap: 6px; flex: 1; min-width: 0; }
-.bar-add input { flex: 1; padding: 6px 10px; border-radius: 16px; border: 2px solid rgba(13, 27, 42, 0.1); font-size: 12px; font-family: inherit; transition: all 0.3s ease; background: var(--bg-main); min-width: 0; }
-.bar-add input:focus { outline: none; border-color: var(--energy-orange); box-shadow: 0 0 0 3px rgba(255, 159, 67, 0.15); }
-.bar-add button { padding: 6px 12px; border-radius: 16px; border: none; background: var(--gradient-power); color: white; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3); white-space: nowrap; flex-shrink: 0; }
-.bar-add button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4); }
+.bar-add-btn { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--energy-orange); color: white; font-size: 20px; font-weight: 400; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; }
 
 /* === MSC開くボタン === */
 .msc-open-btn {
@@ -143,7 +137,6 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
     background: radial-gradient(circle at center, #ffffff 0%, #ffffff 40%, rgba(255, 240, 240, 1) 100%);
     border-left: 4px solid var(--priority-critical-border);
     box-shadow: inset 0 0 30px rgba(255, 51, 51, 0.1), 0 0 15px var(--priority-critical-glow);
-    animation: criticalPulse 3s infinite;
 }
 .card.priority-critical .sl { background: radial-gradient(circle at center, #ffffff 0%, #ffffff 40%, rgba(255, 240, 240, 1) 100%); }
 .card.priority-critical .title { color: var(--text-primary); font-weight: 700; }
@@ -152,7 +145,6 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
     color: white; padding: 3px 10px; border-radius: 0px;
     font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-left: -5px;
     box-shadow: 0 2px 8px rgba(255, 51, 51, 0.4);
-    animation: badgeGlow 2s infinite;
 }
 @keyframes criticalPulse {
     0%, 100% { box-shadow: inset 0 0 30px rgba(255, 51, 51, 0.1), 0 0 15px var(--priority-critical-glow); }
@@ -316,11 +308,9 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .handle:hover { opacity: 0.6; color: var(--energy-orange); }
 
 .divider-label {
-    text-align: center; color: var(--text-secondary); font-size: 12px; font-weight: 600;
-    padding: 14px 0 8px; background: var(--bg-main); text-transform: uppercase; letter-spacing: 1px;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
+    color: var(--text-muted); font-size: 11px; font-weight: 600;
+    padding: 16px 16px 6px; background: var(--bg-main); text-transform: uppercase; letter-spacing: 1px;
 }
-.divider-label::before, .divider-label::after { content: ''; width: 30px; height: 2px; background: linear-gradient(90deg, transparent, var(--slate-gray), transparent); }
 .remindAt { position: absolute; bottom: 2px; right: 0; font-size: 10px; color: var(--muscle-purple); white-space: nowrap; font-weight: 500; background: rgba(165, 94, 234, 0.15); padding: 1px 6px; border-radius: 8px; }
 
 /* === 優先順位バッジ縦表示 === */
@@ -354,7 +344,6 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
     background: linear-gradient(180deg, #ff3333 0%, #cc0000 100%);
     color: white;
     box-shadow: 0 2px 8px rgba(255, 51, 51, 0.4);
-    animation: badgeGlow 2s infinite;
 }
 .card.priority-high .priority-badge {
     background: linear-gradient(180deg, #ffa500 0%, #cc8400 100%);
@@ -501,7 +490,6 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 }
 .mission-swipe-hint::after {
     content: '←';
-    animation: swipeHint 1.5s ease-in-out infinite;
 }
 @keyframes swipeHint {
     0%, 100% { transform: translateX(0); opacity: 0.7; }
@@ -577,7 +565,6 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .daily-btn { flex: 1; padding: 12px; font-size: 14px; font-weight: 600; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease; }
 .daily-btn-cancel { background: var(--bg-main); color: var(--text-secondary); border-color: rgba(13, 27, 42, 0.1); }
 .daily-btn-save { background: var(--gradient-power); color: white; box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3); }
-.daily-btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4); }
 
 /* === 週間ビュー === */
 .week-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
@@ -593,9 +580,7 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .progress-label-name { color: var(--text-secondary); font-weight: 500; }
 .progress-label-value { color: var(--energy-orange); font-weight: 700; }
 .progress-bar-bg { height: 12px; background: rgba(13, 27, 42, 0.08); border-radius: 6px; overflow: hidden; }
-.progress-bar-fill { height: 100%; background: var(--gradient-power); border-radius: 6px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
-.progress-bar-fill::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: shimmer 2s infinite; }
-@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.progress-bar-fill { height: 100%; background: var(--energy-orange); border-radius: 6px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
 
 /* === ジャーナルタブ === */
 .journal-form { background: var(--bg-card); margin: 12px; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(13, 27, 42, 0.06); border: 1px solid rgba(13, 27, 42, 0.04); }
@@ -605,7 +590,6 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .form-textarea { min-height: 120px; resize: vertical; line-height: 1.6; }
 .form-input:focus, .form-textarea:focus { outline: none; border-color: var(--energy-orange); box-shadow: 0 0 0 4px rgba(255, 159, 67, 0.15); background: var(--bg-card); }
 .journal-submit-btn { width: 100%; padding: 14px; background: var(--gradient-power); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3); }
-.journal-submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4); }
 .journal-list { margin: 0 12px; }
 
 /* === 月別アコーディオン === */
@@ -623,7 +607,6 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .journal-month-content-inner { padding-top: 12px; }
 
 .journal-card { background: var(--bg-card); border-radius: 16px; padding: 16px 18px; margin-bottom: 12px; box-shadow: 0 2px 12px rgba(13, 27, 42, 0.06); cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(13, 27, 42, 0.04); border-left: 4px solid var(--energy-orange); }
-.journal-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13, 27, 42, 0.1); }
 .journal-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .journal-date { font-size: 12px; color: var(--text-muted); font-weight: 500; }
 .journal-tasks-count { font-size: 12px; color: var(--success-green); font-weight: 600; background: rgba(38, 222, 129, 0.1); padding: 3px 10px; border-radius: 10px; }
@@ -643,16 +626,14 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .slider-label-row span { font-weight: 500; color: var(--text-secondary); }
 .slider-label-row span.value { font-size: 15px; font-weight: 700; color: var(--energy-orange); }
 input[type="range"] { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 4px; background: rgba(13, 27, 42, 0.1); outline: none; }
-input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--gradient-power); cursor: pointer; box-shadow: 0 2px 10px rgba(255, 107, 107, 0.4); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--energy-orange); cursor: pointer; box-shadow: 0 2px 8px rgba(255, 159, 67, 0.3); }
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .btn-secondary { padding: 12px 20px; border: 2px solid rgba(13, 27, 42, 0.15); border-radius: 25px; background: var(--bg-main); font-weight: 600; cursor: pointer; color: var(--text-secondary); }
-.btn-primary-solid { padding: 12px 24px; border-radius: 25px; background: var(--gradient-power); color: white; border: none; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3); }
-.btn-primary-solid:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4); }
+.btn-primary-solid { padding: 12px 24px; border-radius: 25px; background: var(--energy-orange); color: white; border: none; font-weight: 700; cursor: pointer; }
 
 /* === 優先順位選択モーダル === */
 .priority-selector { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
 .priority-option { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent; }
-.priority-option:hover { transform: translateX(4px); }
 .priority-option.critical { background: linear-gradient(135deg, #1a0a0a 0%, #2d0a0a 100%); border-color: #ff3333; }
 .priority-option.critical:hover { box-shadow: 0 0 20px rgba(255, 51, 51, 0.3); }
 .priority-option.high { background: linear-gradient(135deg, #1a1a0a 0%, #2d2d0a 100%); border-color: #ffa500; }
@@ -675,7 +656,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
 .current-month { font-family: 'Noto Serif JP', serif; font-size: 18px; font-weight: 700; min-width: 110px; text-align: center; color: var(--dark-navy); }
 .monthly-stats-summary { display: flex; gap: 12px; margin-bottom: 20px; }
 .monthly-stat-card { flex: 1; background: var(--bg-main); border-radius: 14px; padding: 14px; text-align: center; }
-.monthly-stat-value { font-size: 28px; font-weight: 700; background: var(--gradient-power); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.monthly-stat-value { font-size: 28px; font-weight: 700; color: var(--energy-orange); }
 .monthly-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 .monthly-table-container { max-height: 200px; overflow-y: auto; margin-bottom: 16px; border-radius: 12px; border: 1px solid rgba(13, 27, 42, 0.08); }
 .monthly-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -695,14 +676,14 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
 .journal-tasks-section { background: var(--bg-main); border-radius: 14px; padding: 14px; margin-bottom: 18px; }
 .journal-tasks-header { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
 .journal-tasks-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.journal-task-chip { background: var(--gradient-power); color: white; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; }
+.journal-task-chip { background: rgba(255, 159, 67, 0.12); color: var(--energy-orange); font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; }
 .journal-content-section { margin-bottom: 18px; }
 .journal-content-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
 .journal-content-body { font-size: 15px; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; }
 .journal-modal-actions { display: flex; gap: 12px; white-space: pre-line; }
 .journal-modal-actions button { flex: 1; padding: 14px; border-radius: 14px; font-size: 15px; font-weight: 600; cursor: pointer; }
 .journal-close-btn { background: var(--bg-main); border: 2px solid rgba(13, 27, 42, 0.1); color: var(--text-secondary); }
-.journal-edit-modal-btn { background: var(--gradient-power); border: none; color: white; }
+.journal-edit-modal-btn { background: var(--energy-orange); border: none; color: white; }
 .journal-edit-form { display: none; }
 .journal-edit-form.active { display: block; }
 .journal-view-content { display: block; }
@@ -710,14 +691,13 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
 
 /* === ローディング・空状態 === */
 .loading { text-align: center; padding: 40px; color: var(--text-muted); }
-.loading::after { content: '💪'; display: block; font-size: 32px; margin-top: 10px; animation: loadingBounce 1s infinite; }
-@keyframes loadingBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.loading::after { content: '💪'; display: block; font-size: 32px; margin-top: 10px; opacity: 0.6; }
 .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); font-size: 14px; }
 .empty-state::before { content: '📝'; display: block; font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: rgba(13, 27, 42, 0.05); border-radius: 3px; }
-::-webkit-scrollbar-thumb { background: var(--energy-orange); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(13, 27, 42, 0.2); border-radius: 3px; }
 
 /* === MSC（ムキムキステータスカード）=== */
 .msc-container { padding: 0; }
@@ -732,7 +712,6 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
     border: 2px solid rgba(255, 100, 50, 0.5);
     box-shadow:
         0 20px 60px rgba(0, 0, 0, 0.6),
-        0 0 40px rgba(255, 68, 34, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 .msc-card::before {
@@ -760,7 +739,6 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
     font-size: 16px; font-weight: 700;
     margin-bottom: 3px;
     color: #fff;
-    text-shadow: 0 0 15px rgba(255, 68, 34, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5);
     letter-spacing: 1px;
 }
 .msc-mbti-tag {
@@ -787,7 +765,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
 }
 .msc-level-badge { font-size: 10px; color: #fff; margin-bottom: 2px; font-weight: 600; letter-spacing: 0.5px; }
 .msc-level-score { display: flex; align-items: baseline; gap: 4px; justify-content: flex-end; }
-.msc-stars { font-size: 12px; letter-spacing: -2px; color: #ff6644; text-shadow: 0 0 10px rgba(255, 68, 34, 0.6); }
+.msc-stars { font-size: 12px; letter-spacing: -2px; color: #ff6644; }
 .msc-score { font-size: 24px; font-weight: 700; color: #fff; text-shadow: 0 0 20px rgba(255, 68, 34, 0.5), 0 2px 4px rgba(0, 0, 0, 0.5); }
 .msc-exp-bar { width: 70px; height: 6px; background: rgba(50, 30, 30, 0.8); border-radius: 2px; margin-top: 4px; overflow: hidden; border: 1px solid rgba(204, 34, 0, 0.4); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
 .msc-exp-fill { height: 100%; background: linear-gradient(90deg, #cc2200, #ff4422, #ff6644); border-radius: 2px; transition: width 0.8s ease; box-shadow: 0 0 10px rgba(255, 68, 34, 0.6); position: relative; }
@@ -891,7 +869,6 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
     height: 50%;
     background: radial-gradient(ellipse at 50% 100%, rgba(255, 68, 34, 0.25) 0%, transparent 60%);
     pointer-events: none;
-    animation: bioFlame 4s ease-in-out infinite;
 }
 @keyframes bioFlame {
     0%, 100% { opacity: 0.6; transform: scaleY(1); }
@@ -904,7 +881,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
 /* MSC タブ切り替え */
 .msc-tab-switch { display: flex; gap: 8px; margin: 12px; background: var(--bg-card); border-radius: 12px; padding: 6px; }
 .msc-tab-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; background: transparent; color: var(--text-muted); }
-.msc-tab-btn.active { background: var(--gradient-power); color: white; box-shadow: 0 2px 10px rgba(255, 107, 107, 0.3); }
+.msc-tab-btn.active { background: var(--dark-navy); color: white; }
 
 /* MBTI選択モーダル */
 .mbti-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
@@ -1186,7 +1163,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
     color: var(--text-secondary);
 }
 .task-btn-edit, .task-btn-save {
-    background: var(--gradient-power);
+    background: var(--energy-orange);
     border: none;
     color: white;
     box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
@@ -1314,3 +1291,22 @@ select {
 
 /* 習慣設定ボタン */
 .habit-settings-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+
+/* === ホバー効果（タッチデバイスでは無効）=== */
+@media (hover: hover) {
+    .bar-btn:hover { background: var(--energy-orange); color: white; }
+    .daily-btn-save:hover { filter: brightness(1.05); }
+    .journal-submit-btn:hover { filter: brightness(1.05); }
+    .journal-card:hover { box-shadow: 0 4px 16px rgba(13, 27, 42, 0.1); }
+    .btn-primary-solid:hover { filter: brightness(1.05); }
+    .priority-option:hover { background: rgba(255, 255, 255, 0.07); }
+}
+
+/* === アクセシビリティ: モーション低減 === */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.15ms !important;
+    }
+}

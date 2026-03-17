@@ -120,10 +120,8 @@ function bindUI() {
 
     // リストタブ
     document.getElementById('refreshBtn').onclick = loadList;
-    document.getElementById('btnAdd').onclick = addTask;
-    document.getElementById('newTitle').addEventListener('keypress', e => {
-        if (e.key === 'Enter') addTask();
-    });
+    const navAddBtn = document.getElementById('navAddBtn');
+    if (navAddBtn) navAddBtn.onclick = showAddTaskModal;
 
     // ステータスタブ
     document.getElementById('statusRefreshBtn').onclick = loadHabits;
