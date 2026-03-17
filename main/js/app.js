@@ -156,6 +156,7 @@ function bindUI() {
     bindMissionModalUI();
     bindUpgradeModalUI();
     bindHabitSettingsModalUI();
+    bindAddTaskModalUI();
 }
 
 /**

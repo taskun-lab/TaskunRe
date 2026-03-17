@@ -188,6 +188,7 @@ let currentTaskDetailData = null;
 function openTaskDetailModal(t, isCompleted) {
     currentTaskDetailData = t;
     const modal = document.getElementById('taskDetailModal');
+    if (!modal) return; // taskDetailModal はインライン編集に移行済み
     const viewContent = document.getElementById('taskViewContent');
     const editContent = document.getElementById('taskEditContent');
 
@@ -434,27 +435,27 @@ function bindAddTaskModalUI() {
     if (backdrop) backdrop.onclick = hideAddTaskModal;
     if (closeBtn) closeBtn.onclick = hideAddTaskModal;
 
-    // セグメントコントロール
-    document.querySelectorAll('.segment-btn').forEach(btn => {
+    // セグメントコントロール（addTaskModal内のみに限定）
+    modal.querySelectorAll('.segment-btn').forEach(btn => {
         btn.onclick = () => {
-            document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+            modal.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             const type = btn.dataset.type;
-            const reasonGroup = document.getElementById('reasonGroup');
-            const timeGroup = document.getElementById('timeGroup');
-            if (reasonGroup) reasonGroup.style.display = type === 'mission' ? 'block' : 'none';
-            if (timeGroup) timeGroup.style.display = type === 'appointment' ? 'block' : 'none';
+            const missionFields = document.getElementById('missionFields');
+            const appointmentFields = document.getElementById('appointmentFields');
+            if (missionFields) missionFields.style.display = type === 'mission' ? 'block' : 'none';
+            if (appointmentFields) appointmentFields.style.display = type === 'appointment' ? 'block' : 'none';
         };
     });
 
     const submitBtn = document.getElementById('addTaskSubmitBtn');
     if (submitBtn) submitBtn.onclick = async () => {
-        const titleEl = document.getElementById('addTaskTitle');
+        const titleEl = document.getElementById('addTaskNameInput');
         const title = titleEl ? titleEl.value.trim() : '';
         if (!title) return;
         if (!checkTaskLimit()) return;
-        const type = document.querySelector('.segment-btn.active')?.dataset.type || 'mission';
-        const reasonEl = document.getElementById('addTaskReason');
+        const type = modal.querySelector('.segment-btn.active')?.dataset.type || 'mission';
+        const reasonEl = document.getElementById('addTaskReasonInput');
         const reason = reasonEl ? reasonEl.value.trim() || null : null;
         await action('create', null, { task_name: title, task_type: type, reason });
         if (titleEl) titleEl.value = '';
