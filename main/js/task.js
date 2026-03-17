@@ -70,11 +70,16 @@ function createTaskCard(t, isCompleted, priority) {
     // 右側アクション
     const right = document.createElement("div");
     right.className = "actions-right";
+    const canDelete = priority === 'normal' || priority === 'active' || !priority;
     right.append(
         mkBtn("詳細", () => openDetail(t), "btn-detail"),
-        mkBtn("優先", () => openPriorityModal(t), "btn-priority"),
-        mkBtn("削除", () => action("delete", t.id), "btn-delete")
+        mkBtn("優先", () => openPriorityModal(t), "btn-priority")
     );
+    if (canDelete) {
+        right.append(mkBtn("削除", () => action("delete", t.id), "btn-delete"));
+    } else {
+        right.append(mkBtn("🔒", () => alert('重要度が設定されているタスクは削除できません。\n優先度を「通常」に戻してから削除してください。'), "btn-delete"));
+    }
 
     rail.append(left, right);
 
@@ -144,6 +149,11 @@ function createTaskCard(t, isCompleted, priority) {
         } else if (actionType === 'uncomplete') {
             if (checkTaskLimit()) action("uncomplete", taskId);
         } else if (actionType === 'delete') {
+            const lvl = t.priority_level || priority;
+            if (lvl === 'critical' || lvl === 'high') {
+                alert('重要度が設定されているタスクは削除できません。\n優先度を「通常」に戻してから削除してください。');
+                return;
+            }
             action("delete", taskId);
         }
     });

@@ -7,7 +7,7 @@ const supabaseClient = () =>
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-async function replyLine(replyToken: string, text: string): Promise<void> {
+async function replyLine(replyToken: string, messages: object[]): Promise<void> {
   const token = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
   if (!token) return;
 
@@ -17,11 +17,35 @@ async function replyLine(replyToken: string, text: string): Promise<void> {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      replyToken,
-      messages: [{ type: 'text', text }],
-    }),
+    body: JSON.stringify({ replyToken, messages }),
   });
+}
+
+function calcRemindAt(when: string): string | null {
+  const now = new Date();
+  switch (when) {
+    case 'tonight': {
+      const d = new Date(now);
+      d.setHours(21, 0, 0, 0);
+      if (d <= now) d.setDate(d.getDate() + 1);
+      return d.toISOString();
+    }
+    case 'tomorrow_morning': {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 1);
+      d.setHours(8, 0, 0, 0);
+      return d.toISOString();
+    }
+    case 'next_monday': {
+      const d = new Date(now);
+      const daysUntilMonday = (8 - d.getDay()) % 7 || 7;
+      d.setDate(d.getDate() + daysUntilMonday);
+      d.setHours(8, 0, 0, 0);
+      return d.toISOString();
+    }
+    default:
+      return null;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -33,63 +57,116 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const events = body?.events;
 
-    if (!Array.isArray(events) || events.length === 0) {
-      return jsonResponse({ ok: true });
-    }
-
-    const event = events[0];
-    const replyToken = event?.replyToken;
-    const user_id = event?.source?.userId;
-    const task_name = event?.message?.text;
-
-    // テキストメッセージ以外は無視
-    if (!user_id || !task_name || event?.message?.type !== 'text') {
-      return jsonResponse({ ok: true });
-    }
+    if (!Array.isArray(events) || events.length === 0) return jsonResponse({ ok: true });
 
     const supabase = supabaseClient();
 
-    // ユーザーが存在しない場合は登録
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('user_id')
-      .eq('user_id', user_id)
-      .single();
+    for (const event of events) {
+      const replyToken = event?.replyToken;
+      const user_id = event?.source?.userId;
+      if (!user_id) continue;
 
-    if (!existingUser) {
-      await supabase.from('users').insert({
-        user_id,
-        role: 'user',
-        plan_code: 'free',
-        task_limit: 10,
-        can_status: false,
-        can_journal: false,
-        subscription_status: null,
-        current_period_end: null,
-      });
-    }
+      // ポストバック（リマインド設定）
+      if (event.type === 'postback') {
+        const data: string = event.postback?.data ?? '';
+        if (data.startsWith('remind|')) {
+          const parts = data.split('|');
+          const task_id = parts[1];
+          const when = parts[2];
 
-    // タスクを挿入
-    const { error: insertError } = await supabase.from('tasks').insert({
-      user_id,
-      task_name,
-      complete_at: 0,
-      task_type: 'appointment',
-      priority: 0,
-      priority_level: 'active',
-      sort_order: 0,
-    });
-
-    if (insertError) {
-      if (replyToken) {
-        await replyLine(replyToken, 'タスクの追加に失敗しました。もう一度お試しください。');
+          if (when === 'none') {
+            if (replyToken) {
+              await replyLine(replyToken, [{ type: 'text', text: '✅ リマインドなしで設定しました！' }]);
+            }
+          } else {
+            const remind_at = calcRemindAt(when);
+            if (task_id && remind_at) {
+              await supabase.from('tasks').update({ remind_at }).eq('id', task_id).eq('user_id', user_id);
+              const label = when === 'tonight' ? '今夜21時' : when === 'tomorrow_morning' ? '明日朝8時' : '来週月曜朝8時';
+              if (replyToken) {
+                await replyLine(replyToken, [{ type: 'text', text: `🔔 ${label}にリマインドします！` }]);
+              }
+            }
+          }
+        }
+        continue;
       }
-      return errorResponse(insertError.message, 500);
-    }
 
-    // LINE返信
-    if (replyToken) {
-      await replyLine(replyToken, `🕐 予定タスクに追加しました！\n${task_name}`);
+      // テキストメッセージ以外は無視
+      if (event?.message?.type !== 'text') continue;
+      const task_name: string = event.message.text;
+
+      // ユーザー登録（未登録の場合）
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('user_id')
+        .eq('user_id', user_id)
+        .single();
+
+      if (!existingUser) {
+        await supabase.from('users').insert({
+          user_id,
+          role: 'user',
+          plan_code: 'free',
+          task_limit: 10,
+          can_status: false,
+          can_journal: false,
+          subscription_status: null,
+          current_period_end: null,
+        });
+      }
+
+      // タスク挿入
+      const { data: inserted, error: insertError } = await supabase
+        .from('tasks')
+        .insert({
+          user_id,
+          task_name,
+          complete_at: 0,
+          task_type: 'appointment',
+          priority: 0,
+          priority_level: 'active',
+          sort_order: 0,
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        if (replyToken) {
+          await replyLine(replyToken, [{ type: 'text', text: 'タスクの追加に失敗しました。もう一度お試しください。' }]);
+        }
+        continue;
+      }
+
+      const task_id = inserted?.id;
+
+      // Quick Reply でリマインド時刻を選択させる
+      if (replyToken && task_id) {
+        await replyLine(replyToken, [{
+          type: 'text',
+          text: `☑ 追加しました！\nリマインドはいつにしますか？`,
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: { type: 'postback', label: '今夜21時', data: `remind|${task_id}|tonight`, displayText: '今夜21時' },
+              },
+              {
+                type: 'action',
+                action: { type: 'postback', label: '明日朝8時', data: `remind|${task_id}|tomorrow_morning`, displayText: '明日朝8時' },
+              },
+              {
+                type: 'action',
+                action: { type: 'postback', label: '来週月曜', data: `remind|${task_id}|next_monday`, displayText: '来週月曜朝8時' },
+              },
+              {
+                type: 'action',
+                action: { type: 'postback', label: '設定しない', data: `remind|${task_id}|none`, displayText: '設定しない' },
+              },
+            ],
+          },
+        }]);
+      }
     }
 
     return jsonResponse({ ok: true });

@@ -569,8 +569,8 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .daily-task-header { display: flex; justify-content: space-between; align-items: center; }
 .daily-task-arrow { font-size: 14px; color: var(--text-muted); transition: transform 0.3s ease; }
 .daily-task-card.expanded .daily-task-arrow { transform: rotate(180deg); color: var(--energy-orange); }
-.daily-task-content { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-.daily-task-card.expanded .daily-task-content { max-height: 500px; }
+.daily-task-content { max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.daily-task-card.expanded .daily-task-content { max-height: 2000px; }
 .habit-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
 .habit-item {
     display: flex; align-items: center; gap: 14px;

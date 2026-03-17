@@ -215,6 +215,11 @@ function openTaskDetailModal(t, isCompleted) {
     // 情報セクション
     const infoEl = document.getElementById('taskModalInfo');
     let infoHtml = '';
+    const typeLabel = t.task_type === 'appointment' ? '🕐 予定タスク' : '🎯 中長期タスク';
+    infoHtml += `<div class="task-info-item"><span class="task-info-label">タイプ</span><span class="task-info-value">${typeLabel}</span></div>`;
+    if (t.reason) {
+        infoHtml += `<div class="task-info-item"><span class="task-info-label">💡 理由</span><span class="task-info-value">${t.reason}</span></div>`;
+    }
     if (t.remind_at) {
         infoHtml += `<div class="task-info-item"><span class="task-info-label">🔔 リマインド</span><span class="task-info-value">${formatRemindLabel(t.remind_at)}</span></div>`;
     }
@@ -238,11 +243,21 @@ function bindTaskDetailModalUI() {
     // 編集モード
     document.getElementById('taskDetailEditBtn').onclick = () => {
         if (!currentTaskDetailData) return;
+        const t = currentTaskDetailData;
         document.getElementById('taskViewContent').classList.add('hidden');
         document.getElementById('taskEditContent').classList.add('active');
-        document.getElementById('editTaskName').value = currentTaskDetailData.task_name || currentTaskDetailData.title || '';
+        document.getElementById('editTaskName').value = t.task_name || t.title || '';
+        document.getElementById('editTaskReason').value = t.reason || '';
+
+        // タスクタイプセレクタ初期値
+        const currentType = t.task_type || 'mission';
+        setEditTaskType(currentType);
         setTimeout(() => document.getElementById('editTaskName').focus(), 50);
     };
+
+    // タイプ切替ボタン
+    document.getElementById('editTypeMission').onclick = () => setEditTaskType('mission');
+    document.getElementById('editTypeAppointment').onclick = () => setEditTaskType('appointment');
 
     // 編集キャンセル
     document.getElementById('taskCancelEditBtn').onclick = () => {
@@ -253,11 +268,20 @@ function bindTaskDetailModalUI() {
     // 編集保存
     document.getElementById('taskSaveEditBtn').onclick = async () => {
         if (!currentTaskDetailData) return;
+        const t = currentTaskDetailData;
         const newTitle = document.getElementById('editTaskName').value.trim();
-        const oldTitle = currentTaskDetailData.task_name || currentTaskDetailData.title || '';
+        const newType = document.querySelector('#taskEditContent .segment-btn.active')?.dataset.type || t.task_type || 'mission';
+        const newReason = document.getElementById('editTaskReason').value.trim() || null;
+
+        const oldTitle = t.task_name || t.title || '';
+        const promises = [];
         if (newTitle && newTitle !== oldTitle) {
-            await action("rename", currentTaskDetailData.id, { task_name: newTitle });
+            promises.push(action("rename", t.id, { task_name: newTitle }));
         }
+        if (newType !== t.task_type || newReason !== (t.reason || null)) {
+            promises.push(action("update_type", t.id, { task_type: newType, reason: newReason }));
+        }
+        await Promise.all(promises);
         close();
     };
 }
@@ -585,4 +609,29 @@ function bindHabitSettingsModalUI() {
         await saveHabitSettings(selected);
         modal.style.display = 'none';
     };
+}
+
+// === タスクタイプ切替ヘルパー ===
+function setEditTaskType(type) {
+    const mBtn = document.getElementById('editTypeMission');
+    const aBtn = document.getElementById('editTypeAppointment');
+    const reasonGroup = document.getElementById('editReasonGroup');
+    if (!mBtn || !aBtn) return;
+
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#0d1b2a';
+    if (type === 'mission') {
+        mBtn.classList.add('active');
+        mBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--primary);border-radius:10px;background:var(--primary);color:white;font-weight:700;cursor:pointer;font-size:13px;';
+        aBtn.classList.remove('active');
+        aBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:white;color:var(--text-main);font-weight:600;cursor:pointer;font-size:13px;';
+        mBtn.dataset.type = 'mission';
+        if (reasonGroup) reasonGroup.style.display = 'block';
+    } else {
+        aBtn.classList.add('active');
+        aBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--primary);border-radius:10px;background:var(--primary);color:white;font-weight:700;cursor:pointer;font-size:13px;';
+        mBtn.classList.remove('active');
+        mBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:white;color:var(--text-main);font-weight:600;cursor:pointer;font-size:13px;';
+        aBtn.dataset.type = 'appointment';
+        if (reasonGroup) reasonGroup.style.display = 'none';
+    }
 }
