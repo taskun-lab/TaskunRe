@@ -154,16 +154,19 @@ function renderWeekView(habits, week) {
         ).join('');
     }
 
-    // 今週の記録日数を表示
-    const recordedDays = days.filter(d => {
-        const dayData = weekData[d] || {};
-        return Object.values(dayData).some(Boolean);
-    }).length;
+    // 今日の日付表示（常に表示）
+    const today = new Date();
+    const m = today.getMonth() + 1;
+    const d = today.getDate();
+    const dow = ['日','月','火','水','木','金','土'][today.getDay()];
     const label = document.getElementById('dailyRecordLabel');
-    if (label && recordedDays > 0) {
-        label.textContent = `今週 ${recordedDays}/7日 記録中`;
-    } else if (label) {
-        label.textContent = '';
+    if (label) {
+        const recordedDays = days.filter(day => {
+            const dayData = weekData[day] || {};
+            return Object.values(dayData).some(Boolean);
+        }).length;
+        const weekText = recordedDays > 0 ? `・今週 ${recordedDays}/7日` : '';
+        label.textContent = `${m}/${d}(${dow})${weekText}`;
     }
 }
 

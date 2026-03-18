@@ -55,79 +55,6 @@
             </div>
         </header>
         <main>
-            <!-- MSC 成長カード -->
-            <div id="msc-card-view" class="msc-view">
-                <div class="msc-modal-backdrop" id="mscModalBackdrop"></div>
-                <div class="msc-container">
-                    <div class="msc-card">
-                        <div class="msc-header">
-                            <div class="msc-header-left">
-                                <div class="msc-icon">💪</div>
-                                <div class="msc-title-area">
-                                    <div class="msc-title">ムキムキ属性</div>
-                                    <div class="msc-mbti-tag" id="mscMbtiTag" onclick="openMbtiModal()">MBTI未設定</div>
-                                </div>
-                            </div>
-                            <div class="msc-header-right">
-                                <div class="msc-level-badge" id="mscLevelBadge">Lv.1 見習いトレーニー</div>
-                                <div class="msc-level-score">
-                                    <span class="msc-stars" id="mscStars">★★★★☆</span>
-                                    <span class="msc-score" id="mscScore">3.5</span>
-                                </div>
-                                <div class="msc-exp-bar"><div class="msc-exp-fill" id="mscExpFill" style="width:35%"></div></div>
-                                <div class="msc-exp-text" id="mscExpText">350 / 1000 EXP</div>
-                            </div>
-                        </div>
-                        <div class="msc-radar-section">
-                            <div class="msc-radar-container">
-                                <canvas id="mscRadarChart"></canvas>
-                            </div>
-                            <div class="msc-radar-date" id="mscRadarDate">※累計データ基準</div>
-                        </div>
-                        <div class="msc-traits-row">
-                            <div class="msc-traits-section msc-strength-section">
-                                <div id="mscStrengths">
-                                    <div class="msc-trait-item">
-                                        <div class="msc-trait-label">STRENGTH</div>
-                                        <div class="msc-trait-icon">🌅</div>
-                                        <div class="msc-trait-content">
-                                            <div class="msc-trait-header">
-                                                <span class="msc-trait-name">規律シールド</span>
-                                                <span class="msc-trait-level">Lv.4.2</span>
-                                            </div>
-                                            <div class="msc-trait-desc">早起きと禁酒を継続し、規律正しい生活を送っている。</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="msc-traits-section msc-weakness-section">
-                                <div id="mscWeaknesses">
-                                    <div class="msc-trait-item">
-                                        <div class="msc-trait-label">WEAKNESS</div>
-                                        <div class="msc-trait-icon">📝</div>
-                                        <div class="msc-trait-content">
-                                            <div class="msc-trait-header">
-                                                <span class="msc-trait-name">内省タイム</span>
-                                                <span class="msc-trait-level">Lv.2.1</span>
-                                            </div>
-                                            <div class="msc-trait-desc">ジャーナル記録が不安定。振り返りの習慣化が課題。</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="msc-bio-section">
-                            <div class="msc-bio-title">生態メモ</div>
-                            <div class="msc-bio-text" id="mscBioText">
-                                朝型の生活リズムを好み、コツコツと積み上げることを大切にしている。
-                                知識欲が強く、常に新しいことを学ぼうとする姿勢を持つ。
-                            </div>
-                        </div>
-                        <div class="msc-footer">©2025 ムキムキタスくん</div>
-                    </div>
-                </div>
-            </div>
-
             <!-- トレーニングログ -->
             <div id="msc-log-view" class="msc-view">
                 <!-- ストリークバッジエリア -->
@@ -206,6 +133,79 @@
     </div>
 
     </div><!-- /.tab-contents -->
+
+    <!-- MSC 成長カード（タブの上に表示するため body 直下に配置） -->
+    <div id="msc-card-view" class="msc-view">
+        <div class="msc-modal-backdrop" id="mscModalBackdrop"></div>
+        <div class="msc-container">
+            <div class="msc-card">
+                <div class="msc-header">
+                    <div class="msc-header-left">
+                        <div class="msc-icon">💪</div>
+                        <div class="msc-title-area">
+                            <div class="msc-title">ムキムキ属性</div>
+                            <div class="msc-mbti-tag" id="mscMbtiTag" onclick="openMbtiModal()">MBTI未設定</div>
+                        </div>
+                    </div>
+                    <div class="msc-header-right">
+                        <div class="msc-level-badge" id="mscLevelBadge">Lv.1 見習いトレーニー</div>
+                        <div class="msc-level-score">
+                            <span class="msc-stars" id="mscStars">★★★★☆</span>
+                            <span class="msc-score" id="mscScore">3.5</span>
+                        </div>
+                        <div class="msc-exp-bar"><div class="msc-exp-fill" id="mscExpFill" style="width:35%"></div></div>
+                        <div class="msc-exp-text" id="mscExpText">350 / 1000 EXP</div>
+                    </div>
+                </div>
+                <div class="msc-radar-section">
+                    <div class="msc-radar-container">
+                        <canvas id="mscRadarChart"></canvas>
+                    </div>
+                    <div class="msc-radar-date" id="mscRadarDate">※累計データ基準</div>
+                </div>
+                <div class="msc-traits-row">
+                    <div class="msc-traits-section msc-strength-section">
+                        <div id="mscStrengths">
+                            <div class="msc-trait-item">
+                                <div class="msc-trait-label">STRENGTH</div>
+                                <div class="msc-trait-icon">🌅</div>
+                                <div class="msc-trait-content">
+                                    <div class="msc-trait-header">
+                                        <span class="msc-trait-name">規律シールド</span>
+                                        <span class="msc-trait-level">Lv.4.2</span>
+                                    </div>
+                                    <div class="msc-trait-desc">早起きと禁酒を継続し、規律正しい生活を送っている。</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="msc-traits-section msc-weakness-section">
+                        <div id="mscWeaknesses">
+                            <div class="msc-trait-item">
+                                <div class="msc-trait-label">WEAKNESS</div>
+                                <div class="msc-trait-icon">📝</div>
+                                <div class="msc-trait-content">
+                                    <div class="msc-trait-header">
+                                        <span class="msc-trait-name">内省タイム</span>
+                                        <span class="msc-trait-level">Lv.2.1</span>
+                                    </div>
+                                    <div class="msc-trait-desc">ジャーナル記録が不安定。振り返りの習慣化が課題。</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="msc-bio-section">
+                    <div class="msc-bio-title">生態メモ</div>
+                    <div class="msc-bio-text" id="mscBioText">
+                        朝型の生活リズムを好み、コツコツと積み上げることを大切にしている。
+                        知識欲が強く、常に新しいことを学ぼうとする姿勢を持つ。
+                    </div>
+                </div>
+                <div class="msc-footer">©2025 ムキムキタスくん</div>
+            </div>
+        </div>
+    </div>
 
     <!-- ジャーナル詳細モーダル -->
     <div id="journalDetailModal" class="modal-root">

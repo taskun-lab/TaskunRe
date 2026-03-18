@@ -79,15 +79,51 @@
 [data-theme="dark"] .progress-bar-bg { background: rgba(255,255,255,0.1); }
 [data-theme="dark"] .msc-tab-switch { background: #3a3a3c; }
 [data-theme="dark"] .msc-tab-btn { color: #8e8e93; }
+/* ダークモード追加カバレッジ */
+[data-theme="dark"] html { background: #1c1c1e; }
+[data-theme="dark"] .streak-badge { background: #3a3a3c; color: #f2f2f7; box-shadow: none; }
+[data-theme="dark"] .streak-badge.streak-warning { background: rgba(255,107,107,0.15); color: #ff6b6b; }
+[data-theme="dark"] .daily-btn-cancel { border-color: rgba(255,255,255,0.15); color: #ebebf5; }
+[data-theme="dark"] .habit-settings-btn { background: #3a3a3c; border-color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .journal-form { background: #2c2c2e; border-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .form-label { color: #8e8e93; }
+[data-theme="dark"] .journal-month-header { background: #2c2c2e; border-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] .journal-month-title { color: #f2f2f7; }
+[data-theme="dark"] .journal-month-count { background: #3a3a3c; color: #8e8e93; }
+[data-theme="dark"] .journal-title-text { color: #f2f2f7; }
+[data-theme="dark"] .journal-close-btn { background: #3a3a3c; border-color: rgba(255,255,255,0.15); color: #f2f2f7; }
+[data-theme="dark"] .monthly-stat-card { background: #3a3a3c; }
+[data-theme="dark"] .card-edit-cancel-btn { background: #3a3a3c; color: #f2f2f7; border-color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .week-table th, [data-theme="dark"] .week-table td { border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .week-table .unchecked { color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .progress-bar-bg { background: rgba(255,255,255,0.1); }
+[data-theme="dark"] .status-section-title { color: #f2f2f7; }
+[data-theme="dark"] .daily-record-label { color: #8e8e93; }
+[data-theme="dark"] .monthly-table th { background: #2c2c2e; color: #8e8e93; }
+[data-theme="dark"] .monthly-table td { border-bottom-color: rgba(255,255,255,0.06); color: #f2f2f7; }
+[data-theme="dark"] .monthly-table .cell-uncheck { color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .month-selector-btn { background: #3a3a3c; border-color: rgba(255,255,255,0.15); color: #f2f2f7; }
+[data-theme="dark"] .current-month { color: #f2f2f7; }
+[data-theme="dark"] .journal-tasks-section { background: #3a3a3c; }
+[data-theme="dark"] .journal-content-body { color: #f2f2f7; }
+[data-theme="dark"] .journal-modal-title { color: #f2f2f7; }
+[data-theme="dark"] .divider-label { color: #8e8e93; }
+[data-theme="dark"] .completed-section-header { background: rgba(38,222,129,0.05); }
+[data-theme="dark"] input[type="range"] { background: rgba(255,255,255,0.1); }
+[data-theme="dark"] .priority-option.normal { background: #3a3a3c; border-color: rgba(255,255,255,0.1); }
+[data-theme="dark"] .preset-cat-item { background: #3a3a3c; color: #ebebf5; }
+[data-theme="dark"] .preset-cat-item.selected { background: #f2f2f7; color: #1c1c1e; }
+[data-theme="dark"] .bar-btn { border-color: rgba(255,255,255,0.2); color: #f2f2f7; }
 
 /* === リセット・ベース === */
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
+html { height: 100dvh; margin: 0; overflow: hidden; background: var(--bg-main); }
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
     background: var(--bg-main);
     color: var(--text-primary);
     display: flex; flex-direction: column; overflow: hidden;
+    height: 100dvh; margin: 0;
 }
 .heading-serif { font-family: 'Noto Serif JP', serif; font-weight: 700; }
 
