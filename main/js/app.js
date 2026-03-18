@@ -229,19 +229,23 @@ function updateTabLockUI() {
     const journalTab = document.querySelector('.tab-nav-item[data-tab="journal"]');
     const gatingOn = typeof isGatingEnabled === 'function' && isGatingEnabled();
 
+    // innerHTML を使うとアイコン画像が消えるため、span のみ更新する
+    const statusSpan = statusTab.querySelector('span');
+    const journalSpan = journalTab.querySelector('span');
+
     if (gatingOn && currentEntitlements && !currentEntitlements.can_status) {
-        statusTab.innerHTML = 'ステータス<span class="lock-icon">🔒</span>';
+        if (statusSpan) statusSpan.innerHTML = 'ステータス<span class="lock-icon">🔒</span>';
         statusTab.classList.add('locked');
     } else {
-        statusTab.innerHTML = 'ステータス';
+        if (statusSpan) statusSpan.textContent = 'ステータス';
         statusTab.classList.remove('locked');
     }
 
     if (gatingOn && currentEntitlements && !currentEntitlements.can_journal) {
-        journalTab.innerHTML = 'ジャーナル<span class="lock-icon">🔒</span>';
+        if (journalSpan) journalSpan.innerHTML = 'ジャーナル<span class="lock-icon">🔒</span>';
         journalTab.classList.add('locked');
     } else {
-        journalTab.innerHTML = 'ジャーナル';
+        if (journalSpan) journalSpan.textContent = 'ジャーナル';
         journalTab.classList.remove('locked');
     }
 }
