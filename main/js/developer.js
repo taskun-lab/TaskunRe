@@ -15,15 +15,26 @@ function initDeveloperMenu() {
 
     if (!devMenuBtn || !devModal) return;
 
-    // developer ロールの場合のみボタンを表示
-    if (currentEntitlements?.role === 'developer' || currentEntitlements?.role === 'admin') {
-        devMenuBtn.style.display = 'block';
-    }
+    // 全ユーザーにボタンを表示
+    devMenuBtn.style.display = 'block';
 
     // モーダル開閉
     devMenuBtn.onclick = () => openDevModal();
     devBackdrop.onclick = () => closeDevModal();
     devCloseBtn.onclick = () => closeDevModal();
+
+    // テーマトグル（全ユーザー）
+    const menuThemeToggle = document.getElementById('menuThemeToggle');
+    if (menuThemeToggle) {
+        menuThemeToggle.checked = (localStorage.getItem('theme') || 'light') === 'dark';
+        menuThemeToggle.onchange = () => {
+            const next = menuThemeToggle.checked ? 'dark' : 'light';
+            document.documentElement.dataset.theme = next;
+            localStorage.setItem('theme', next);
+            updateThemeBtn(next);
+            updateTabIcons(next);
+        };
+    }
 
     // 外部リンクボタン
     document.querySelectorAll('.dev-link-btn').forEach(btn => {
@@ -31,12 +42,10 @@ function initDeveloperMenu() {
     });
 
     // Feature Flag トグル
-    document.getElementById('flagGatingEnabled').onchange = (e) => {
-        updateAppConfig({ gating_enabled: e.target.checked });
-    };
-    document.getElementById('flagBillingEnabled').onchange = (e) => {
-        updateAppConfig({ billing_enabled: e.target.checked });
-    };
+    const flagGating = document.getElementById('flagGatingEnabled');
+    const flagBilling = document.getElementById('flagBillingEnabled');
+    if (flagGating) flagGating.onchange = (e) => updateAppConfig({ gating_enabled: e.target.checked });
+    if (flagBilling) flagBilling.onchange = (e) => updateAppConfig({ billing_enabled: e.target.checked });
 }
 
 /**
@@ -46,8 +55,21 @@ async function openDevModal() {
     const devModal = document.getElementById('devModal');
     devModal.style.display = 'flex';
 
-    // app_config を取得して表示
-    await loadAppConfig();
+    // 開発者専用セクションの表示制御
+    const isDev = currentEntitlements?.role === 'developer' || currentEntitlements?.role === 'admin';
+    devModal.querySelectorAll('.dev-only-section').forEach(s => {
+        s.style.display = isDev ? 'block' : 'none';
+    });
+    const titleEl = devModal.querySelector('.dev-modal-title');
+    if (titleEl) titleEl.textContent = isDev ? '🛠️ 開発者メニュー' : '⚙️ 設定';
+
+    // テーマトグルを現在の状態に同期
+    const menuThemeToggle = document.getElementById('menuThemeToggle');
+    if (menuThemeToggle) {
+        menuThemeToggle.checked = (localStorage.getItem('theme') || 'light') === 'dark';
+    }
+
+    if (isDev) await loadAppConfig();
 }
 
 /**

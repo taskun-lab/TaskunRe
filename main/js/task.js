@@ -40,6 +40,9 @@ function renderList(payload) {
     active.forEach(t => { t.priority_level = t.priority_level || 'normal'; activeEl.appendChild(createTaskCard(t, false, t.priority_level)); });
     completed.forEach(t => completedEl.appendChild(createTaskCard(t, true, t.priority_level || 'normal')));
 
+    // ジャーナル用に今日の達成タスクを保持
+    window._completedTasksForJournal = completed;
+
     // 達成タスクアコーディオン更新
     updateCompletedToggle(completed.length);
 }

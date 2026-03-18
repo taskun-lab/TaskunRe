@@ -119,12 +119,10 @@ function bindUI() {
     });
 
     // リストタブ
-    document.getElementById('refreshBtn').onclick = loadList;
     const navAddBtn = document.getElementById('navAddBtn');
     if (navAddBtn) navAddBtn.onclick = showAddTaskModal;
 
     // ステータスタブ
-    document.getElementById('statusRefreshBtn').onclick = loadHabits;
     document.getElementById('dailyTaskCard').addEventListener('click', e => {
         if (!e.target.closest('.habit-checkbox') && !e.target.closest('.daily-btn')) {
             document.getElementById('dailyTaskCard').classList.toggle('expanded');
@@ -141,7 +139,6 @@ function bindUI() {
     if (habitSettingsBtn) habitSettingsBtn.onclick = () => showHabitSettingsModal();
 
     // ジャーナルタブ
-    document.getElementById('journalRefreshBtn').onclick = loadJournals;
     document.getElementById('journalDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('journalSubmitBtn').onclick = saveJournal;
 
@@ -174,6 +171,66 @@ function bindUI() {
     bindUpgradeModalUI();
     bindHabitSettingsModalUI();
     bindAddTaskModalUI();
+    initPullToRefresh();
+}
+
+/**
+ * プルリフレッシュ初期化
+ */
+function initPullToRefresh() {
+    const container = document.querySelector('.tab-contents');
+    const indicator = document.getElementById('pullRefreshIndicator');
+    if (!container || !indicator) return;
+
+    let startY = 0;
+    let pulling = false;
+    const THRESHOLD = 70;
+
+    container.addEventListener('touchstart', e => {
+        if (container.scrollTop === 0) {
+            startY = e.touches[0].clientY;
+            pulling = true;
+        }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', e => {
+        if (!pulling) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy > 0 && container.scrollTop === 0) {
+            const capped = Math.min(dy * 0.6, 56);
+            const progress = Math.min(dy / THRESHOLD, 1);
+            indicator.style.height = `${capped}px`;
+            indicator.style.opacity = String(progress);
+            const icon = indicator.querySelector('.pull-icon');
+            if (icon) icon.style.transform = `rotate(${progress * 180}deg)`;
+        }
+    }, { passive: true });
+
+    container.addEventListener('touchend', async e => {
+        if (!pulling) return;
+        const dy = e.changedTouches[0].clientY - startY;
+        pulling = false;
+
+        if (dy > THRESHOLD) {
+            indicator.classList.add('refreshing');
+            indicator.style.height = '48px';
+            indicator.style.opacity = '1';
+            await refreshActiveTab();
+            indicator.classList.remove('refreshing');
+        }
+
+        indicator.style.height = '0';
+        indicator.style.opacity = '0';
+        const icon = indicator.querySelector('.pull-icon');
+        if (icon) icon.style.transform = '';
+    }, { passive: true });
+}
+
+async function refreshActiveTab() {
+    const activeTab = document.querySelector('.tab-nav-item.active')?.dataset.tab;
+    if (activeTab === 'list') await loadList();
+    else if (activeTab === 'status') { await loadHabits(); await loadMscData(); }
+    else if (activeTab === 'journal') await loadJournals();
 }
 
 function updateThemeBtn(theme) {

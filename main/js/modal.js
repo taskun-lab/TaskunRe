@@ -473,6 +473,20 @@ async function showHabitSettingsModal() {
     const modal = document.getElementById('habitSettingsModal');
     if (!modal) return;
     modal.style.display = 'flex';
+    // 現在の習慣設定を selectedHabitByCategory に反映
+    selectedHabitByCategory = {};
+    if (Array.isArray(currentHabits)) {
+        for (const h of currentHabits) {
+            if (h.category) {
+                selectedHabitByCategory[h.category] = {
+                    habit_id: h.habit_id,
+                    habit_name: h.habit_name,
+                    category: h.category,
+                    icon: h.icon || ''
+                };
+            }
+        }
+    }
     const presets = await loadHabitPresets();
     renderHabitPresetsGrid(presets);
 }

@@ -202,13 +202,14 @@ async function saveJournal() {
     }
 
     try {
+        const todayCompleted = (window._completedTasksForJournal || []);
         await apiCall('/journals/save', 'POST', {
             user_id: userId,
             date: date,
             title: title,
             content: content,
-            tasks_completed_count: 0,
-            completed_tasks: []
+            tasks_completed_count: todayCompleted.length,
+            completed_tasks: todayCompleted.map(t => t.task_name || t.title || '').filter(Boolean)
         });
         document.getElementById('journalTitle').value = '';
         document.getElementById('journalContent').value = '';
