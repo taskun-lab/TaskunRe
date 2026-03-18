@@ -36,6 +36,50 @@
     --bg-dark: #0d1b2a;
 }
 
+/* === ダークモード === */
+[data-theme="dark"] {
+    --bg-main: #1c1c1e;
+    --bg-card: #2c2c2e;
+    --text-primary: #f2f2f7;
+    --text-secondary: #ebebf599;
+    --text-muted: #8e8e93;
+    --dark-navy: #f2f2f7;
+    --border-color: rgba(255,255,255,0.12);
+}
+[data-theme="dark"] body { background: #1c1c1e; color: #f2f2f7; }
+[data-theme="dark"] header { background: #2c2c2e; border-bottom-color: rgba(255,255,255,0.1); }
+[data-theme="dark"] .tab-nav { background: rgba(28,28,30,0.97); border-top-color: rgba(255,255,255,0.1); }
+[data-theme="dark"] .tab-nav-item { color: #8e8e93; }
+[data-theme="dark"] .card { background: #2c2c2e; border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .card .sl { background: #2c2c2e; }
+[data-theme="dark"] .card.priority-critical .sl { background: radial-gradient(circle at center, #2c2c2e 0%, #3a1515 100%); }
+[data-theme="dark"] .card.priority-high .sl { background: radial-gradient(circle at center, #2c2c2e 0%, #3a3015 100%); }
+[data-theme="dark"] .modal-panel { background: #2c2c2e; }
+[data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.7); }
+[data-theme="dark"] .status-section { background: #2c2c2e; }
+[data-theme="dark"] .habit-item { background: #3a3a3c; }
+[data-theme="dark"] .journal-card { background: #2c2c2e; border-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .form-input, [data-theme="dark"] .form-textarea { background: #3a3a3c; border-color: rgba(255,255,255,0.15); color: #f2f2f7; }
+[data-theme="dark"] .bar-title { color: #f2f2f7; }
+[data-theme="dark"] .divider-label { background: #1c1c1e; }
+[data-theme="dark"] .card-edit-panel { background: #3a3a3c; }
+[data-theme="dark"] .card-edit-inner { background: transparent; }
+[data-theme="dark"] .card-edit-name, [data-theme="dark"] .card-edit-reason { background: #2c2c2e; color: #f2f2f7; border-color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .card-type-btn { background: #3a3a3c; color: #ebebf5; border-color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .card-type-btn.active { background: #f2f2f7; color: #1c1c1e; }
+[data-theme="dark"] .completed-section-header { background: rgba(38,222,129,0.08); }
+[data-theme="dark"] .priority-option.normal { background: #3a3a3c; }
+[data-theme="dark"] .btn-secondary { background: #3a3a3c; color: #f2f2f7; border-color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .segment-control { background: #3a3a3c; }
+[data-theme="dark"] .segment-btn { color: #8e8e93; }
+[data-theme="dark"] .segment-btn.active { background: #f2f2f7; color: #1c1c1e; }
+[data-theme="dark"] .habit-settings-btn { border-color: rgba(255,255,255,0.2); color: #8e8e93; }
+[data-theme="dark"] .preset-cat-row { background: #3a3a3c; }
+[data-theme="dark"] .week-table th, [data-theme="dark"] .week-table td { color: #ebebf5; }
+[data-theme="dark"] .progress-bar-bg { background: rgba(255,255,255,0.1); }
+[data-theme="dark"] .msc-tab-switch { background: #3a3a3c; }
+[data-theme="dark"] .msc-tab-btn { color: #8e8e93; }
+
 /* === リセット・ベース === */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -43,12 +87,13 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
     background: var(--bg-main);
     color: var(--text-primary);
+    display: flex; flex-direction: column; overflow: hidden;
 }
 .heading-serif { font-family: 'Noto Serif JP', serif; font-weight: 700; }
 
 /* === タブナビゲーション（底部固定） === */
 .tab-nav {
-    position: fixed; bottom: 0; left: 0; right: 0;
+    flex-shrink: 0;
     background: rgba(248, 249, 250, 0.97);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -56,7 +101,9 @@ body {
     z-index: 100;
     border-top: 1px solid rgba(13, 27, 42, 0.1);
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    order: 2;
 }
+.tab-contents { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; order: 1; position: relative; }
 .tab-nav-item {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
@@ -78,15 +125,13 @@ body {
 .tab-content { display: none; animation: fadeIn 0.3s ease; }
 .tab-content.active { display: block; }
 .tab-content header { position: sticky; top: 0; z-index: 10; }
-.tab-content main { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+.tab-content main { padding-bottom: 20px; }
 #tab-status {
-    min-height: 100vh;
-    min-height: 100dvh;
+    min-height: 100%;
 }
 #tab-status main {
-    min-height: calc(100vh - 60px);
-    min-height: calc(100dvh - 60px);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    min-height: calc(100% - 60px);
+    padding-bottom: 40px;
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -1282,6 +1327,28 @@ select {
 
 /* 習慣設定ボタン */
 .habit-settings-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+
+/* デイリータスク記録日数ラベル */
+.daily-record-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* 習慣設定カテゴリ選択スタイル */
+.preset-cat-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; background: var(--bg-card); border-radius: 12px;
+    cursor: pointer; margin-bottom: 8px;
+    border: 1px solid rgba(13,27,42,0.06);
+}
+.preset-cat-left { display: flex; align-items: center; gap: 10px; }
+.preset-cat-icon { font-size: 20px; }
+.preset-cat-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.preset-cat-right { display: flex; align-items: center; gap: 8px; }
+.preset-cat-selected { font-size: 13px; color: var(--energy-orange); font-weight: 500; }
+.preset-cat-item {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    border-radius: 12px; cursor: pointer; background: var(--bg-main);
+    border: 2px solid transparent; transition: border-color 0.15s;
+}
+.preset-cat-item.selected { border-color: var(--energy-orange); background: rgba(255,159,67,0.06); }
 
 /* === ホバー効果（タッチデバイスでは無効）=== */
 @media (hover: hover) {

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-theme="light">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
@@ -14,26 +14,14 @@
 </head>
 <body>
 
-    <nav class="tab-nav">
-        <div class="tab-nav-item active" data-tab="list">
-            <img src="images/tab/リストロゴ.png" class="tab-icon" alt=""/>
-            <span>リスト</span>
-        </div>
-        <div class="tab-nav-item" data-tab="status">
-            <img src="images/tab/ステータスロゴ.png" class="tab-icon" alt=""/>
-            <span>ステータス</span>
-        </div>
-        <div class="tab-nav-item" data-tab="journal">
-            <img src="images/tab/ジャーナルロゴ.png" class="tab-icon" alt=""/>
-            <span>ジャーナル</span>
-        </div>
-    </nav>
+    <div class="tab-contents">
 
     <!-- リストタブ -->
     <div id="tab-list" class="tab-content active">
         <header>
             <div class="bar">
                 <div class="bar-title">リスト</div>
+                <button class="bar-btn" id="themeToggleBtn" style="font-size:16px;padding:6px 10px;">🌙</button>
                 <button class="bar-btn" id="refreshBtn">↻</button>
                 <button class="bar-add-btn" id="navAddBtn">＋</button>
                 <button class="bar-btn dev-menu-btn" id="devMenuBtn" style="display:none;">⋯</button>
@@ -146,7 +134,10 @@
                 <div id="streakBadges" class="streak-badges"></div>
                 <div class="status-section daily-task-card" id="dailyTaskCard">
                     <div class="daily-task-header">
-                        <div class="status-section-title"><span>🏋️</span> デイリータスク</div>
+                        <div>
+                            <div class="status-section-title"><span>🏋️</span> デイリータスク</div>
+                            <div class="daily-record-label" id="dailyRecordLabel"></div>
+                        </div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <button id="habitSettingsBtn" class="habit-settings-btn" onclick="showHabitSettingsModal()">⚙ 習慣を設定</button>
                             <span class="daily-task-arrow">▼</span>
@@ -213,6 +204,8 @@
             <div class="journal-list" id="journalList"></div>
         </main>
     </div>
+
+    </div><!-- /.tab-contents -->
 
     <!-- ジャーナル詳細モーダル -->
     <div id="journalDetailModal" class="modal-root">
@@ -515,6 +508,24 @@
         </div>
     </div>
 
+    <!-- 習慣カテゴリ選択モーダル -->
+    <div id="habitCategoryModal" class="modal-root" style="display:none;">
+        <div class="modal-backdrop" id="habitCategoryBackdrop"></div>
+        <div class="modal-panel">
+            <div class="modal-handle-bar"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div style="font-weight:700;font-size:17px;" id="habitCategoryModalTitle">習慣を選ぶ</div>
+                <button id="habitCategoryCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted);">&times;</button>
+            </div>
+            <div id="habitCategoryList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;max-height:50vh;overflow-y:auto;"></div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;">✏️ 自由記入</label>
+                <input id="habitCategoryCustomInput" type="text" class="form-input" placeholder="習慣名を入力…" maxlength="20" style="margin:0;" />
+            </div>
+            <button id="habitCategoryDoneBtn" class="daily-btn daily-btn-save" style="width:100%;">決定</button>
+        </div>
+    </div>
+
     <!-- 週次振り返りバナー -->
     <div id="weeklyReflectionBanner" class="weekly-banner" style="display:none;">
         <div class="weekly-banner-card">
@@ -526,6 +537,24 @@
             </div>
         </div>
     </div>
+
+    <nav class="tab-nav">
+        <div class="tab-nav-item active" data-tab="list">
+            <img src="images/tab/リストロゴ_black.png" class="tab-icon tab-icon-light" alt=""/>
+            <img src="images/tab/リストロゴ.png" class="tab-icon tab-icon-dark" alt="" style="display:none;"/>
+            <span>リスト</span>
+        </div>
+        <div class="tab-nav-item" data-tab="status">
+            <img src="images/tab/ステータスロゴ_black.png" class="tab-icon tab-icon-light" alt=""/>
+            <img src="images/tab/ステータスロゴ.png" class="tab-icon tab-icon-dark" alt="" style="display:none;"/>
+            <span>ステータス</span>
+        </div>
+        <div class="tab-nav-item" data-tab="journal">
+            <img src="images/tab/ジャーナルロゴ_black.png" class="tab-icon tab-icon-light" alt=""/>
+            <img src="images/tab/ジャーナルロゴ.png" class="tab-icon tab-icon-dark" alt="" style="display:none;"/>
+            <span>ジャーナル</span>
+        </div>
+    </nav>
 
     <!-- JavaScript読み込み（順序重要）-->
     <script src="js/config.js"></script>

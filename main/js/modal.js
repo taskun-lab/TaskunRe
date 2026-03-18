@@ -466,6 +466,8 @@ function bindAddTaskModalUI() {
 
 // === 習慣設定モーダル（Phase2） ===
 let selectedHabitIds = new Set();
+let selectedHabitByCategory = {}; // { '体力': { habit_id, habit_name, category, icon }, ... }
+let _currentCatModal = null;
 
 async function showHabitSettingsModal() {
     const modal = document.getElementById('habitSettingsModal');
@@ -478,48 +480,120 @@ async function showHabitSettingsModal() {
 function renderHabitPresetsGrid(presets) {
     const grid = document.getElementById('presetGrid');
     if (!grid) return;
+
     const byCategory = {};
     for (const p of presets) {
         if (!byCategory[p.category]) byCategory[p.category] = [];
         byCategory[p.category].push(p);
     }
+    window._presetsByCategory = byCategory;
 
     const CATEGORY_ICONS = { '体力': '💪', '知力': '📚', '精神力': '🧘', '節制': '🚫', '生産性': '💻', '活力': '🌅' };
 
     grid.innerHTML = HABIT_CATEGORIES.map(cat => {
-        const items = byCategory[cat] || [];
-        const catIcon = CATEGORY_ICONS[cat] || '✨';
-        return `<div class="preset-category">
-            <div class="preset-category-title">${catIcon} ${cat}</div>
-            <div class="preset-items">
-                ${items.map(p => `
-                    <div class="preset-item ${selectedHabitIds.has(p.habit_id) ? 'selected' : ''}" data-id="${p.habit_id}" data-name="${p.habit_name}" data-cat="${p.category}" data-icon="${p.icon}">
-                        <span class="preset-item-icon">${p.icon}</span>
-                        <span class="preset-item-name">${p.habit_name}</span>
-                    </div>
-                `).join('')}
-                <div class="preset-item preset-custom-input-row" data-cat="${cat}">
-                    <span class="preset-item-icon">✏️</span>
-                    <input class="preset-custom-input" type="text" placeholder="自由入力…" maxlength="20" onclick="event.stopPropagation()" />
-                </div>
+        const icon = CATEGORY_ICONS[cat] || '✨';
+        const sel = selectedHabitByCategory[cat];
+        const selLabel = sel ? `${sel.icon || ''} ${sel.habit_name}` : '未設定';
+        return `<div class="preset-cat-row" data-cat="${cat}">
+            <div class="preset-cat-left">
+                <span class="preset-cat-icon">${icon}</span>
+                <span class="preset-cat-name">${cat}</span>
+            </div>
+            <div class="preset-cat-right">
+                <span class="preset-cat-selected" data-cat="${cat}">${selLabel}</span>
+                <span style="color:var(--text-muted);font-size:16px;">›</span>
             </div>
         </div>`;
     }).join('');
 
-    grid.querySelectorAll('.preset-item:not(.preset-custom-input-row)').forEach(item => {
+    grid.querySelectorAll('.preset-cat-row').forEach(row => {
+        row.onclick = () => openHabitCategoryModal(row.dataset.cat, byCategory[row.dataset.cat] || []);
+    });
+}
+
+function openHabitCategoryModal(cat, items) {
+    _currentCatModal = cat;
+    const modal = document.getElementById('habitCategoryModal');
+    if (!modal) return;
+
+    const CATEGORY_ICONS = { '体力': '💪', '知力': '📚', '精神力': '🧘', '節制': '🚫', '生産性': '💻', '活力': '🌅' };
+    document.getElementById('habitCategoryModalTitle').textContent = `${CATEGORY_ICONS[cat] || ''} ${cat}の習慣を選ぶ`;
+
+    const current = selectedHabitByCategory[cat];
+    const listEl = document.getElementById('habitCategoryList');
+    listEl.innerHTML = items.map(p => `
+        <div class="preset-cat-item ${current?.habit_id === p.habit_id ? 'selected' : ''}" data-id="${p.habit_id}" data-name="${p.habit_name}" data-icon="${p.icon || ''}">
+            <span style="font-size:20px;">${p.icon || '●'}</span>
+            <span style="flex:1;font-size:14px;font-weight:500;">${p.habit_name}</span>
+            <span class="preset-cat-check" style="color:var(--energy-orange);font-size:18px;">${current?.habit_id === p.habit_id ? '✓' : ''}</span>
+        </div>
+    `).join('');
+
+    listEl.querySelectorAll('.preset-cat-item').forEach(item => {
         item.onclick = () => {
-            const id = item.dataset.id;
-            if (selectedHabitIds.has(id)) {
-                selectedHabitIds.delete(id);
-                item.classList.remove('selected');
-            } else if (selectedHabitIds.size < 6) {
-                selectedHabitIds.add(id);
-                item.classList.add('selected');
-            } else {
-                alert('最大6つまで選択できます');
-            }
+            listEl.querySelectorAll('.preset-cat-item').forEach(i => {
+                i.classList.remove('selected');
+                i.querySelector('.preset-cat-check').textContent = '';
+            });
+            item.classList.add('selected');
+            item.querySelector('.preset-cat-check').textContent = '✓';
+            document.getElementById('habitCategoryCustomInput').value = '';
         };
     });
+
+    const customInput = document.getElementById('habitCategoryCustomInput');
+    customInput.value = (current && current._custom) ? current.habit_name : '';
+    if (customInput.value) {
+        listEl.querySelectorAll('.preset-cat-item').forEach(i => {
+            i.classList.remove('selected');
+            i.querySelector('.preset-cat-check').textContent = '';
+        });
+    }
+
+    modal.style.display = 'flex';
+}
+
+function bindHabitCategoryModalUI() {
+    const modal = document.getElementById('habitCategoryModal');
+    if (!modal) return;
+
+    document.getElementById('habitCategoryBackdrop').onclick = () => modal.style.display = 'none';
+    document.getElementById('habitCategoryCloseBtn').onclick = () => modal.style.display = 'none';
+
+    document.getElementById('habitCategoryDoneBtn').onclick = () => {
+        const cat = _currentCatModal;
+        if (!cat) { modal.style.display = 'none'; return; }
+
+        const customVal = document.getElementById('habitCategoryCustomInput').value.trim();
+        const selectedItem = document.querySelector('#habitCategoryList .preset-cat-item.selected');
+
+        if (customVal) {
+            const CATEGORY_ICONS = { '体力': '💪', '知力': '📚', '精神力': '🧘', '節制': '🚫', '生産性': '💻', '活力': '🌅' };
+            selectedHabitByCategory[cat] = {
+                habit_id: `custom_${cat}_${customVal}`.replace(/\s+/g,'_').toLowerCase(),
+                habit_name: customVal,
+                category: cat,
+                icon: CATEGORY_ICONS[cat] || '✨',
+                _custom: true
+            };
+        } else if (selectedItem) {
+            selectedHabitByCategory[cat] = {
+                habit_id: selectedItem.dataset.id,
+                habit_name: selectedItem.dataset.name,
+                category: cat,
+                icon: selectedItem.dataset.icon
+            };
+        } else {
+            delete selectedHabitByCategory[cat];
+        }
+
+        // カテゴリ行の表示を更新
+        const sel = selectedHabitByCategory[cat];
+        const label = document.querySelector(`.preset-cat-selected[data-cat="${cat}"]`);
+        if (label) label.textContent = sel ? `${sel.icon || ''} ${sel.habit_name}` : '未設定';
+
+        modal.style.display = 'none';
+    };
 }
 
 function bindHabitSettingsModalUI() {
@@ -531,34 +605,13 @@ function bindHabitSettingsModalUI() {
     if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
     const saveBtn = document.getElementById('habitSettingsSaveBtn');
     if (saveBtn) saveBtn.onclick = async () => {
-        const grid = document.getElementById('presetGrid');
-        if (!grid) return;
-
-        // プリセット選択分
-        const selected = Array.from(grid.querySelectorAll('.preset-item.selected')).map(el => ({
-            habit_id: el.dataset.id,
-            habit_name: el.dataset.name,
-            category: el.dataset.cat,
-            icon: el.dataset.icon
-        }));
-
-        // 自由入力分
-        const CATEGORY_ICONS = { '体力': '💪', '知力': '📚', '精神力': '🧘', '節制': '🚫', '生産性': '💻', '活力': '🌅' };
-        grid.querySelectorAll('.preset-custom-input').forEach(input => {
-            const name = input.value.trim();
-            if (!name) return;
-            const cat = input.closest('.preset-custom-input-row')?.dataset.cat || '';
-            const icon = CATEGORY_ICONS[cat] || '✨';
-            const customId = `custom_${cat}_${name}`.replace(/\s+/g, '_').toLowerCase();
-            selected.push({ habit_id: customId, habit_name: name, category: cat, icon });
-        });
-
-        if (selected.length === 0) { alert('習慣を1つ以上選択または入力してください'); return; }
-        if (selected.length > 6) { alert('最大6つまで設定できます'); return; }
-
+        const selected = Object.values(selectedHabitByCategory);
+        if (selected.length === 0) { alert('習慣を1つ以上設定してください'); return; }
         await saveHabitSettings(selected);
-        modal.style.display = 'none';
+        const modal = document.getElementById('habitSettingsModal');
+        if (modal) modal.style.display = 'none';
     };
+    bindHabitCategoryModalUI();
 }
 
 // === タスクタイプ切替ヘルパー ===

@@ -153,6 +153,18 @@ function renderWeekView(habits, week) {
             </tr>`
         ).join('');
     }
+
+    // 今週の記録日数を表示
+    const recordedDays = days.filter(d => {
+        const dayData = weekData[d] || {};
+        return Object.values(dayData).some(Boolean);
+    }).length;
+    const label = document.getElementById('dailyRecordLabel');
+    if (label && recordedDays > 0) {
+        label.textContent = `今週 ${recordedDays}/7日 記録中`;
+    } else if (label) {
+        label.textContent = '';
+    }
 }
 
 /**

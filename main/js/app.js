@@ -145,6 +145,23 @@ function bindUI() {
     document.getElementById('journalDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('journalSubmitBtn').onclick = saveJournal;
 
+    // テーマ切替
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.dataset.theme = savedTheme;
+    updateThemeBtn(savedTheme);
+    updateTabIcons(savedTheme);
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    if (themeToggleBtn) {
+        themeToggleBtn.onclick = () => {
+            const current = document.documentElement.dataset.theme;
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.dataset.theme = next;
+            localStorage.setItem('theme', next);
+            updateThemeBtn(next);
+            updateTabIcons(next);
+        };
+    }
+
     // 各種モーダルUI初期化
     bindModalUI();
     bindTaskDetailModalUI();
@@ -157,6 +174,20 @@ function bindUI() {
     bindUpgradeModalUI();
     bindHabitSettingsModalUI();
     bindAddTaskModalUI();
+}
+
+function updateThemeBtn(theme) {
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+function updateTabIcons(theme) {
+    document.querySelectorAll('.tab-icon-light').forEach(el => {
+        el.style.display = theme === 'dark' ? 'none' : 'block';
+    });
+    document.querySelectorAll('.tab-icon-dark').forEach(el => {
+        el.style.display = theme === 'dark' ? 'block' : 'none';
+    });
 }
 
 /**
