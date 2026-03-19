@@ -54,6 +54,7 @@
 [data-theme="dark"] .card .sl { background: #2c2c2e; }
 [data-theme="dark"] .card.priority-critical .sl { background: radial-gradient(circle at center, #2c2c2e 0%, #3a1515 100%); }
 [data-theme="dark"] .card.priority-high .sl { background: radial-gradient(circle at center, #2c2c2e 0%, #3a3015 100%); }
+[data-theme="dark"] .card.priority-quest { border-left-color: var(--energy-orange); }
 [data-theme="dark"] .modal-panel { background: #2c2c2e; }
 [data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.7); }
 [data-theme="dark"] .status-section { background: #2c2c2e; }
@@ -260,6 +261,7 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 }
 
 .card.priority-normal { background: var(--bg-card); }
+.card.priority-quest { background: var(--bg-card); border-left: 3px solid var(--energy-orange); }
 .priority-badge { display: none; }
 .card.priority-critical .priority-badge, .card.priority-high .priority-badge { display: block; }
 .card.completed .title { color: var(--text-muted); text-decoration: line-through; }
@@ -402,6 +404,24 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
     color: var(--text-muted); font-size: 11px; font-weight: 600;
     padding: 16px 16px 6px; background: var(--bg-main); text-transform: uppercase; letter-spacing: 1px;
 }
+
+/* === LIST セクションラベル === */
+.list-section-label {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 14px 16px 6px; background: var(--bg-main);
+    display: flex; align-items: center; gap: 6px;
+}
+.list-section-urgent { color: #ff6b6b; }
+.list-section-quest  { color: var(--energy-orange); }
+.list-section-task   { color: var(--text-muted); }
+[data-theme="dark"] .list-section-label { background: #1c1c1e; }
+
+/* urgent フラグトグル行 */
+.urgent-toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; margin-bottom: 4px;
+}
+.urgent-toggle-label { font-size: 14px; font-weight: 700; color: #ff6b6b; }
 .remindAt { position: absolute; bottom: 2px; right: 0; font-size: 10px; color: var(--muscle-purple); white-space: nowrap; font-weight: 500; background: rgba(165, 94, 234, 0.15); padding: 1px 6px; border-radius: 8px; }
 
 /* === 優先順位バッジ縦表示 === */

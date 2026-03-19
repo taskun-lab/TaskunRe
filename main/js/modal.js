@@ -216,7 +216,7 @@ function openTaskDetailModal(t, isCompleted) {
     // 情報セクション
     const infoEl = document.getElementById('taskModalInfo');
     let infoHtml = '';
-    const typeLabel = t.task_type === 'appointment' ? '🕐 予定タスク' : '🎯 中長期タスク';
+    const typeLabel = t.task_type === 'mission' ? '🎯 クエスト' : '✅ タスク';
     infoHtml += `<div class="task-info-item"><span class="task-info-label">タイプ</span><span class="task-info-value">${typeLabel}</span></div>`;
     if (t.reason) {
         infoHtml += `<div class="task-info-item"><span class="task-info-label">💡 理由</span><span class="task-info-value">${t.reason}</span></div>`;
@@ -419,7 +419,17 @@ function formatDate(dateStr) {
 function showAddTaskModal() {
     const modal = document.getElementById('addTaskModal');
     if (!modal) return;
+    // デフォルト状態にリセット（クエスト選択中）
+    modal.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+    const defaultBtn = modal.querySelector('.segment-btn[data-type="mission"]');
+    if (defaultBtn) defaultBtn.classList.add('active');
+    const questFields = document.getElementById('questFields');
+    if (questFields) questFields.style.display = 'block';
+    const urgentFlag = document.getElementById('addTaskUrgentFlag');
+    if (urgentFlag) urgentFlag.checked = false;
     modal.style.display = 'flex';
+    const nameInput = document.getElementById('addTaskNameInput');
+    if (nameInput) setTimeout(() => nameInput.focus(), 100);
 }
 
 function hideAddTaskModal() {
@@ -441,10 +451,8 @@ function bindAddTaskModalUI() {
             modal.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             const type = btn.dataset.type;
-            const missionFields = document.getElementById('missionFields');
-            const appointmentFields = document.getElementById('appointmentFields');
-            if (missionFields) missionFields.style.display = type === 'mission' ? 'block' : 'none';
-            if (appointmentFields) appointmentFields.style.display = type === 'appointment' ? 'block' : 'none';
+            const questFields = document.getElementById('questFields');
+            if (questFields) questFields.style.display = type === 'mission' ? 'block' : 'none';
         };
     });
 
@@ -454,12 +462,20 @@ function bindAddTaskModalUI() {
         const title = titleEl ? titleEl.value.trim() : '';
         if (!title) return;
         if (!checkTaskLimit()) return;
-        const type = modal.querySelector('.segment-btn.active')?.dataset.type || 'mission';
+        const type = modal.querySelector('.segment-btn.active')?.dataset.type || 'default';
         const reasonEl = document.getElementById('addTaskReasonInput');
-        const reason = reasonEl ? reasonEl.value.trim() || null : null;
-        await action('create', null, { task_name: title, task_type: type, reason });
+        const reason = type === 'mission' ? (reasonEl ? reasonEl.value.trim() || null : null) : null;
+        const targetDateEl = document.getElementById('addTaskTargetDateInput');
+        const target_date = type === 'mission' ? (targetDateEl ? targetDateEl.value || null : null) : null;
+        const urgentFlag = document.getElementById('addTaskUrgentFlag');
+        const urgent = urgentFlag ? urgentFlag.checked : false;
+        // urgent_flag は priority_level: 'critical' にマッピング
+        const priority_level = urgent ? 'critical' : 'normal';
+        await action('create', null, { task_name: title, task_type: type, reason, target_date, priority_level });
         if (titleEl) titleEl.value = '';
         if (reasonEl) reasonEl.value = '';
+        if (targetDateEl) targetDateEl.value = '';
+        if (urgentFlag) urgentFlag.checked = false;
         hideAddTaskModal();
     };
 }
@@ -635,20 +651,17 @@ function setEditTaskType(type) {
     const reasonGroup = document.getElementById('editReasonGroup');
     if (!mBtn || !aBtn) return;
 
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#0d1b2a';
     if (type === 'mission') {
         mBtn.classList.add('active');
         mBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--primary);border-radius:10px;background:var(--primary);color:white;font-weight:700;cursor:pointer;font-size:13px;';
         aBtn.classList.remove('active');
-        aBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:white;color:var(--text-main);font-weight:600;cursor:pointer;font-size:13px;';
-        mBtn.dataset.type = 'mission';
+        aBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-main);font-weight:600;cursor:pointer;font-size:13px;';
         if (reasonGroup) reasonGroup.style.display = 'block';
     } else {
         aBtn.classList.add('active');
         aBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--primary);border-radius:10px;background:var(--primary);color:white;font-weight:700;cursor:pointer;font-size:13px;';
         mBtn.classList.remove('active');
-        mBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:white;color:var(--text-main);font-weight:600;cursor:pointer;font-size:13px;';
-        aBtn.dataset.type = 'appointment';
+        mBtn.style.cssText = 'flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-main);font-weight:600;cursor:pointer;font-size:13px;';
         if (reasonGroup) reasonGroup.style.display = 'none';
     }
 }

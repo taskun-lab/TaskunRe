@@ -31,10 +31,12 @@
         </header>
         <main>
             <div id="missionTaskContainer"></div>
-            <div class="divider-label">🎯 ToDoタスク</div>
-            <div id="critical" class="list"></div>
-            <div id="high" class="list"></div>
-            <div id="active" class="list"></div>
+            <div class="list-section-label list-section-urgent" id="urgentSection" style="display:none;">⚡ 今日中</div>
+            <div id="urgentList" class="list"></div>
+            <div class="list-section-label list-section-quest" id="questSection" style="display:none;">🎯 クエスト</div>
+            <div id="questList" class="list"></div>
+            <div class="list-section-label list-section-task" id="taskSection" style="display:none;">✅ タスク</div>
+            <div id="taskList" class="list"></div>
             <div class="completed-section">
                 <div class="completed-section-header" id="completedToggle">
                     <div class="completed-section-title">✅ 達成タスク <span class="completed-section-count" id="completedCount"></span></div>
@@ -344,29 +346,22 @@
         <div id="priorityBackdrop" class="modal-backdrop"></div>
         <div class="modal-panel">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;margin-bottom:10px;">
-                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">⚡ 優先順位を設定</div>
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;">⚡ 今日中フラグ</div>
                 <button id="priorityCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
             </div>
             <div id="priorityTaskTitle" style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;"></div>
             <div class="priority-selector">
                 <div class="priority-option critical" data-priority="critical">
-                    <div class="priority-option-icon">🔥</div>
-                    <div class="priority-option-text">
-                        <div class="priority-option-title">最重要</div>
-                        <div class="priority-option-desc">今すぐ取り組むべき最優先タスク</div>
-                    </div>
-                </div>
-                <div class="priority-option high" data-priority="high">
                     <div class="priority-option-icon">⚡</div>
                     <div class="priority-option-text">
-                        <div class="priority-option-title">重要</div>
-                        <div class="priority-option-desc">優先的に処理すべきタスク</div>
+                        <div class="priority-option-title">今日中にやる</div>
+                        <div class="priority-option-desc">今日中に完了させたいタスク</div>
                     </div>
                 </div>
                 <div class="priority-option normal" data-priority="normal">
                     <div class="priority-option-icon">📌</div>
                     <div class="priority-option-text">
-                        <div class="priority-option-title">ノーマル</div>
+                        <div class="priority-option-title">通常</div>
                         <div class="priority-option-desc">通常の優先度に戻す</div>
                     </div>
                 </div>
@@ -500,16 +495,21 @@
                 <button id="addTaskCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
             </div>
             <div class="segment-control" style="margin-top:16px;">
-                <button class="segment-btn active" data-type="mission">🎯 ミッション</button>
-                <button class="segment-btn" data-type="appointment">🕐 予定</button>
+                <button class="segment-btn active" data-type="mission">🎯 クエスト</button>
+                <button class="segment-btn" data-type="default">✅ タスク</button>
             </div>
-            <input id="addTaskNameInput" type="text" placeholder="タスク名" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:12px;">
-            <div id="missionFields">
-                <input id="addTaskReasonInput" type="text" placeholder="なぜやるの？（任意）" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:14px;color:var(--text-secondary);">
+            <input id="addTaskNameInput" type="text" placeholder="タスク名" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;">
+            <div id="questFields">
+                <input id="addTaskReasonInput" type="text" placeholder="なぜやるの？（任意）" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:14px;color:var(--text-secondary);margin-bottom:8px;box-sizing:border-box;">
+                <input id="addTaskTargetDateInput" type="date" placeholder="いつやる？（任意）" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:14px;color:var(--text-secondary);margin-bottom:8px;box-sizing:border-box;">
             </div>
-            <div id="appointmentFields" style="display:none;">
-                <input id="addTaskDatetimeInput" type="datetime-local" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:14px;">
-            </div>
+            <label class="urgent-toggle-row">
+                <span class="urgent-toggle-label">⚡ 今日中</span>
+                <label class="toggle-switch" style="margin:0;">
+                    <input type="checkbox" id="addTaskUrgentFlag">
+                    <span class="toggle-slider"></span>
+                </label>
+            </label>
             <button id="addTaskSubmitBtn" style="margin-top:16px;width:100%;padding:14px;background:linear-gradient(135deg,#ff9f43,#ff6b6b);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">追加する 💪</button>
         </div>
     </div>

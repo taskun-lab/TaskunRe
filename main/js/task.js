@@ -3,9 +3,9 @@
    ============================================= */
 
 // DOM要素
-const criticalEl = document.getElementById("critical");
-const highEl = document.getElementById("high");
-const activeEl = document.getElementById("active");
+const urgentEl = document.getElementById("urgentList");
+const questEl = document.getElementById("questList");
+const taskEl = document.getElementById("taskList");
 const completedEl = document.getElementById("completed");
 
 /**
@@ -25,9 +25,9 @@ async function loadList() {
  * タスクリストをレンダリング
  */
 function renderList(payload) {
-    criticalEl.innerHTML = '';
-    highEl.innerHTML = '';
-    activeEl.innerHTML = '';
+    urgentEl.innerHTML = '';
+    questEl.innerHTML = '';
+    taskEl.innerHTML = '';
     completedEl.innerHTML = '';
 
     const critical = Array.isArray(payload.critical) ? payload.critical : [];
@@ -35,10 +35,26 @@ function renderList(payload) {
     const active = Array.isArray(payload.active) ? payload.active : [];
     const completed = Array.isArray(payload.completed) ? payload.completed : [];
 
-    critical.forEach(t => { t.priority_level = 'critical'; criticalEl.appendChild(createTaskCard(t, false, 'critical')); });
-    high.forEach(t => { t.priority_level = 'high'; highEl.appendChild(createTaskCard(t, false, 'high')); });
-    active.forEach(t => { t.priority_level = t.priority_level || 'normal'; activeEl.appendChild(createTaskCard(t, false, t.priority_level)); });
+    // 全未完了タスクをマージして、タイプ別に振り分け
+    const allActive = [
+        ...critical.map(t => ({ ...t, priority_level: 'critical' })),
+        ...high.map(t => ({ ...t, priority_level: t.priority_level || 'high' })),
+        ...active.map(t => ({ ...t, priority_level: t.priority_level || 'normal' }))
+    ];
+
+    const urgent = allActive.filter(t => t.priority_level === 'critical');
+    const quest = allActive.filter(t => t.task_type === 'mission' && t.priority_level !== 'critical');
+    const tasks = allActive.filter(t => t.task_type !== 'mission' && t.priority_level !== 'critical');
+
+    urgent.forEach(t => urgentEl.appendChild(createTaskCard(t, false, 'critical')));
+    quest.forEach(t => questEl.appendChild(createTaskCard(t, false, 'quest')));
+    tasks.forEach(t => taskEl.appendChild(createTaskCard(t, false, t.priority_level || 'normal')));
     completed.forEach(t => completedEl.appendChild(createTaskCard(t, true, t.priority_level || 'normal')));
+
+    // セクションラベルの表示/非表示
+    document.getElementById('urgentSection').style.display = urgent.length > 0 ? '' : 'none';
+    document.getElementById('questSection').style.display = quest.length > 0 ? '' : 'none';
+    document.getElementById('taskSection').style.display = tasks.length > 0 ? '' : 'none';
 
     // ジャーナル用に今日の達成タスクを保持
     window._completedTasksForJournal = completed;
@@ -95,16 +111,11 @@ function createTaskCard(t, isCompleted, priority) {
     // 右側アクション
     const right = document.createElement("div");
     right.className = "actions-right";
-    const canDelete = priority === 'normal' || priority === 'active' || !priority;
     right.append(
         mkBtn("詳細", () => openDetail(t), "btn-detail"),
-        mkBtn("優先", () => openPriorityModal(t), "btn-priority")
+        mkBtn("⚡", () => openPriorityModal(t), "btn-priority"),
+        mkBtn("削除", () => action("delete", t.id), "btn-delete")
     );
-    if (canDelete) {
-        right.append(mkBtn("削除", () => action("delete", t.id), "btn-delete"));
-    } else {
-        right.append(mkBtn("🔒", () => alert('重要度が設定されているタスクは削除できません。\n優先度を「通常」に戻してから削除してください。'), "btn-delete"));
-    }
 
     rail.append(left, right);
 
@@ -119,23 +130,10 @@ function createTaskCard(t, isCompleted, priority) {
     const titleArea = document.createElement("div");
     titleArea.className = "card-title-area";
 
-    // 優先順位バッジ
+    // タスクタイプアイコン
     if (priority === 'critical') {
-        const badge = document.createElement("span");
-        badge.className = "priority-badge";
-        badge.textContent = "最重要";
-        titleArea.appendChild(badge);
-    } else if (priority === 'high') {
-        const badge = document.createElement("span");
-        badge.className = "priority-badge";
-        badge.textContent = "重要";
-        titleArea.appendChild(badge);
-    }
-
-    // タスクタイプアイコン（Phase2）
-    if (t.task_type === 'appointment') {
         const icon = document.createElement("span");
-        icon.textContent = "🕐";
+        icon.textContent = "⚡";
         icon.style.cssText = "font-size:13px;flex-shrink:0;";
         titleArea.appendChild(icon);
     } else if (t.task_type === 'mission') {
@@ -175,11 +173,6 @@ function createTaskCard(t, isCompleted, priority) {
         } else if (actionType === 'uncomplete') {
             if (checkTaskLimit()) action("uncomplete", taskId);
         } else if (actionType === 'delete') {
-            const lvl = t.priority_level || priority;
-            if (lvl === 'critical' || lvl === 'high') {
-                alert('重要度が設定されているタスクは削除できません。\n優先度を「通常」に戻してから削除してください。');
-                return;
-            }
             action("delete", taskId);
         }
     });
@@ -208,10 +201,10 @@ function createCardEditPanel(t) {
     const panel = document.createElement("div");
     panel.className = "card-edit-panel";
 
-    const typeLabel = t.task_type === 'appointment' ? '🕐 予定タスク' : '🎯 中長期タスク';
+    const isQuest = t.task_type === 'mission';
+    const typeLabel = isQuest ? '🎯 クエスト' : '✅ タスク';
     const remindBadge = t.remind_at ? `<span class="card-remind-badge">${formatRemindLabel(t.remind_at)}</span>` : '';
     const reasonHtml = t.reason ? `<div class="card-reason-text">💡 ${escapeHtml(t.reason)}</div>` : '';
-    const isMission = (t.task_type || 'mission') !== 'appointment';
 
     panel.innerHTML = `
         <div class="card-edit-inner">
@@ -224,11 +217,11 @@ function createCardEditPanel(t) {
                 <input type="text" class="form-input card-edit-name" value="${escapeHtml(t.task_name || t.title || '')}" />
             </div>
             <div class="card-type-switcher">
-                <button class="card-type-btn${isMission ? ' active' : ''}" data-type="mission">🎯 中長期</button>
-                <button class="card-type-btn${!isMission ? ' active' : ''}" data-type="appointment">🕐 予定</button>
+                <button class="card-type-btn${isQuest ? ' active' : ''}" data-type="mission">🎯 クエスト</button>
+                <button class="card-type-btn${!isQuest ? ' active' : ''}" data-type="default">✅ タスク</button>
             </div>
-            <div class="card-edit-reason-group" style="${isMission ? '' : 'display:none'}">
-                <textarea class="form-input card-edit-reason" rows="2" placeholder="理由・目的（任意）" style="resize:none;margin-bottom:8px;">${escapeHtml(t.reason || '')}</textarea>
+            <div class="card-edit-reason-group" style="${isQuest ? '' : 'display:none'}">
+                <textarea class="form-input card-edit-reason" rows="2" placeholder="なぜやるの？（任意）" style="resize:none;margin-bottom:8px;">${escapeHtml(t.reason || '')}</textarea>
             </div>
             <div class="card-edit-actions">
                 <button class="card-edit-cancel-btn">キャンセル</button>
@@ -255,14 +248,14 @@ function createCardEditPanel(t) {
     panel.querySelector('.card-edit-save-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
         const newTitle = panel.querySelector('.card-edit-name').value.trim();
-        const newType = panel.querySelector('.card-type-btn.active')?.dataset.type || t.task_type || 'mission';
+        const newType = panel.querySelector('.card-type-btn.active')?.dataset.type || t.task_type || 'default';
         const newReason = panel.querySelector('.card-edit-reason').value.trim() || null;
         const oldTitle = t.task_name || t.title || '';
         const promises = [];
         if (newTitle && newTitle !== oldTitle) {
             promises.push(action("rename", t.id, { task_name: newTitle }));
         }
-        if (newType !== (t.task_type || 'mission') || newReason !== (t.reason || null)) {
+        if (newType !== (t.task_type || 'default') || newReason !== (t.reason || null)) {
             promises.push(action("update_type", t.id, { task_type: newType, reason: newReason }));
         }
         if (promises.length > 0) await Promise.all(promises);
@@ -382,8 +375,8 @@ function setupDragHandle(handle, wrap, sl, t) {
 async function saveSortOrder() {
     if (!userId) return;
     const orders = [];
-    [criticalEl, highEl, activeEl, completedEl].forEach((listEl, idx) => {
-        const section = ['critical', 'high', 'active', 'completed'][idx];
+    [urgentEl, questEl, taskEl, completedEl].forEach((listEl, idx) => {
+        const section = ['urgent', 'quest', 'task', 'completed'][idx];
         listEl.querySelectorAll('.card').forEach((card, index) => {
             const t = card.__taskData;
             if (t) orders.push({ id: t.id, sort_order: index, section });
@@ -410,10 +403,9 @@ async function addTask() {
  * 現在の未完了タスク数を取得
  */
 function getTodoCount() {
-    const criticalCount = criticalEl.querySelectorAll('.card:not(.completed)').length;
-    const highCount = highEl.querySelectorAll('.card:not(.completed)').length;
-    const activeCount = activeEl.querySelectorAll('.card:not(.completed)').length;
-    return criticalCount + highCount + activeCount;
+    return urgentEl.querySelectorAll('.card:not(.completed)').length
+         + questEl.querySelectorAll('.card:not(.completed)').length
+         + taskEl.querySelectorAll('.card:not(.completed)').length;
 }
 
 /**
