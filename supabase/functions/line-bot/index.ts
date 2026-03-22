@@ -1,5 +1,18 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsResponse, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { buildCors } from '../_shared/cors.ts';
+
+async function verifyLineSignature(rawBody: string, signature: string, secret: string): Promise<boolean> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+  const computed = btoa(String.fromCharCode(...new Uint8Array(mac)));
+  return computed === signature;
+}
 
 const supabaseClient = () =>
   createClient(
@@ -49,12 +62,23 @@ function calcRemindAt(when: string): string | null {
 }
 
 Deno.serve(async (req: Request) => {
+  const { corsResponse, jsonResponse, errorResponse } = buildCors(req.headers.get('origin'));
   if (req.method === 'OPTIONS') return corsResponse();
 
   try {
     if (req.method !== 'POST') return errorResponse('Method not allowed', 405);
 
-    const body = await req.json();
+    // LINE Webhook 署名検証
+    const channelSecret = Deno.env.get('LINE_CHANNEL_SECRET');
+    const signature = req.headers.get('x-line-signature') ?? '';
+    const rawBody = await req.text();
+
+    if (channelSecret) {
+      const valid = await verifyLineSignature(rawBody, signature, channelSecret);
+      if (!valid) return errorResponse('Invalid signature', 401);
+    }
+
+    const body = JSON.parse(rawBody);
     const events = body?.events;
 
     if (!Array.isArray(events) || events.length === 0) return jsonResponse({ ok: true });

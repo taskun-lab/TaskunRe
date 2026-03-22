@@ -1,0 +1,15 @@
+# 環境変数（最重要）
+.env
+.env.local
+.env.*
+!.env.example
+
+# Supabase ローカル開発
+.supabase/
+supabase/.temp/
+
+# その他
+node_modules/
+*.log
+.DS_Store
+tab/

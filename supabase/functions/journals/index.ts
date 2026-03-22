@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsResponse, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { buildCors } from '../_shared/cors.ts';
 
 const supabaseClient = () =>
   createClient(
@@ -43,6 +43,7 @@ function groupByMonth(journals: Journal[]) {
 }
 
 Deno.serve(async (req: Request) => {
+  const { corsResponse, jsonResponse, errorResponse } = buildCors(req.headers.get('origin'));
   if (req.method === 'OPTIONS') return corsResponse();
 
   try {
