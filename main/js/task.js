@@ -196,6 +196,26 @@ function createTaskCard(t, isCompleted, priority) {
         toggleCardEditPanel(wrap);
     });
 
+    // === ロングプレス（500ms）→ 移動モード ===
+    if (!isCompleted) {
+        let longPressTimer = null;
+        const startLongPress = (e) => {
+            if (e.target.closest('.handle') || e.target.closest('button')) return;
+            longPressTimer = setTimeout(() => {
+                longPressTimer = null;
+                wrap.classList.add('card-lifted');
+                if (typeof window.enterMoveMode === 'function') {
+                    window.enterMoveMode(t.id, t.task_name || t.title || '');
+                }
+            }, 500);
+        };
+        const cancelLongPress = () => { clearTimeout(longPressTimer); longPressTimer = null; };
+        sl.addEventListener('pointerdown', startLongPress);
+        sl.addEventListener('pointerup',   cancelLongPress);
+        sl.addEventListener('pointermove', cancelLongPress);
+        sl.addEventListener('pointercancel', cancelLongPress);
+    }
+
     // タスクデータを保持
     wrap.__taskData = t;
     wrap.dataset.taskId = t.id;

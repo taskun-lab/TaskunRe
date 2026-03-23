@@ -158,6 +158,20 @@ async function propagateCompletion(supabase: Supabase, parentId: number, user_id
   }
 }
 
+// 子孫タスクの depth を再帰的に更新
+async function updateChildDepths(supabase: Supabase, parentId: number, parentDepth: number, user_id: string): Promise<void> {
+  const { data: children } = await supabase
+    .from('tasks')
+    .select('id')
+    .eq('parent_task_id', parentId)
+    .eq('user_id', user_id);
+  if (!children || children.length === 0) return;
+  for (const child of children) {
+    await supabase.from('tasks').update({ depth: parentDepth + 1 }).eq('id', child.id).eq('user_id', user_id);
+    await updateChildDepths(supabase, child.id, parentDepth + 1, user_id);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const { corsResponse, jsonResponse, errorResponse } = buildCors(req.headers.get('origin'));
   if (req.method === 'OPTIONS') return corsResponse();
@@ -430,6 +444,36 @@ Deno.serve(async (req: Request) => {
             .eq('id', task_id)
             .eq('user_id', user_id);
           if (error) return errorResponse(error.message, 500);
+          break;
+        }
+
+        case 'reparent': {
+          // task_id を parent_task_id の子へ移動（parent_task_id=null でルートに戻す）
+          if (!task_id) return errorResponse('task_id is required', 400);
+          if (task_id === parent_task_id) return errorResponse('Cannot reparent to itself', 400);
+
+          let newDepth = 0;
+          if (parent_task_id) {
+            const { data: newParent, error: parentErr } = await supabase
+              .from('tasks')
+              .select('depth')
+              .eq('id', parent_task_id)
+              .eq('user_id', user_id)
+              .single();
+            if (parentErr || !newParent) return errorResponse('Parent not found', 404);
+            newDepth = (newParent.depth ?? 0) + 1;
+            if (newDepth > 4) return errorResponse('MAX_DEPTH_EXCEEDED', 400);
+          }
+
+          const { error } = await supabase
+            .from('tasks')
+            .update({ parent_task_id: parent_task_id ?? null, depth: newDepth })
+            .eq('id', task_id)
+            .eq('user_id', user_id);
+          if (error) return errorResponse(error.message, 500);
+
+          // 子孫の depth も再帰更新
+          await updateChildDepths(supabase, task_id, newDepth, user_id);
           break;
         }
 

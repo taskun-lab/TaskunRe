@@ -561,6 +561,44 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 }
 .tree-journal-btn:active { background: var(--border); }
 
+/* ツリー サブタスク追加行 */
+.tree-add-sub-row {
+    display: flex; gap: 6px; margin-top: 8px;
+}
+.tree-add-sub-btn {
+    padding: 6px 12px; border: none; border-radius: 8px;
+    background: var(--energy-orange); color: white;
+    font-size: 16px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+}
+
+/* 移動モードバナー */
+#tree-move-banner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; background: var(--energy-orange); color: white;
+    font-size: 13px; font-weight: 600;
+}
+#tree-move-cancel {
+    background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0 4px;
+}
+
+/* ドロップターゲット（移動モード時） */
+.tree-node.tree-drop-target > .tree-row {
+    background: rgba(255, 159, 67, 0.15);
+    border-left: 3px solid var(--energy-orange);
+    cursor: pointer;
+}
+[data-theme="dark"] .tree-node.tree-drop-target > .tree-row {
+    background: rgba(255, 159, 67, 0.1);
+}
+
+/* ロングプレス中のカード */
+.card-lifted .sl {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    transform: scale(1.02);
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 10;
+}
+
 /* ジャーナルハイライト（ツリーから遷移時） */
 .journal-card.journal-highlight {
     animation: journal-flash 0.4s ease 2;
