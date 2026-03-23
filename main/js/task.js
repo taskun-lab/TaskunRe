@@ -47,15 +47,7 @@ function renderList(payload) {
     const tasks = allActive.filter(t => t.task_type !== 'mission' && t.priority_level !== 'critical');
 
     urgent.forEach(t => urgentEl.appendChild(createTaskCard(t, false, 'critical')));
-    quest.forEach(t => {
-        questEl.appendChild(createTaskCard(t, false, 'quest'));
-        if (t.subtask_count > 0) {
-            const subRows = document.createElement('div');
-            subRows.className = 'list-subtask-rows';
-            questEl.appendChild(subRows);
-            loadInlineSubtasks(t.id, subRows);
-        }
-    });
+    quest.forEach(t => questEl.appendChild(createTaskCard(t, false, 'quest')));
     tasks.forEach(t => taskEl.appendChild(createTaskCard(t, false, t.priority_level || 'normal')));
     completed.forEach(t => completedEl.appendChild(createTaskCard(t, true, t.priority_level || 'normal')));
 
@@ -186,7 +178,10 @@ function createTaskCard(t, isCompleted, priority) {
 
     sl.append(contentArea, handle);
     const editPanel = createCardEditPanel(t);
-    wrap.append(rail, sl, editPanel);
+    const inlineSubs = document.createElement('div');
+    inlineSubs.className = 'card-inline-subtasks';
+    inlineSubs.style.display = 'none';
+    wrap.append(rail, sl, editPanel, inlineSubs);
 
     // === 改良版スワイプ機能を適用 ===
     applySwipeToCard(wrap, t, isCompleted, (actionType, taskId) => {
@@ -358,8 +353,13 @@ function createCardEditPanel(t) {
 function toggleCardEditPanel(wrap) {
     const isOpen = wrap.classList.contains('expanded');
     if (!isOpen) {
-        document.querySelectorAll('.card.expanded').forEach(c => c.classList.remove('expanded'));
-        // 初回展開時にサブタスクをロード
+        // 他のカードを閉じる
+        document.querySelectorAll('.card.expanded').forEach(c => {
+            c.classList.remove('expanded');
+            const prev = c.querySelector('.card-inline-subtasks');
+            if (prev) prev.style.display = 'none';
+        });
+        // 編集パネルのサブタスクを初回ロード
         const panel = wrap.querySelector('.card-edit-panel');
         const list  = panel?.querySelector('.card-subtask-list');
         if (list && !list._loaded) {
@@ -367,6 +367,19 @@ function toggleCardEditPanel(wrap) {
             const t = wrap.__taskData;
             if (t) loadSubtasks(t.id, list);
         }
+        // インラインサブタスク（アコーディオン）を表示
+        const t = wrap.__taskData;
+        const inlineSubs = wrap.querySelector('.card-inline-subtasks');
+        if (t && inlineSubs) {
+            inlineSubs.style.display = '';
+            if (!inlineSubs._loaded) {
+                inlineSubs._loaded = true;
+                loadInlineSubtasks(t.id, inlineSubs, 0);
+            }
+        }
+    } else {
+        const inlineSubs = wrap.querySelector('.card-inline-subtasks');
+        if (inlineSubs) inlineSubs.style.display = 'none';
     }
     wrap.classList.toggle('expanded', !isOpen);
 }
@@ -587,34 +600,92 @@ async function loadSubtasks(parentId, container) {
 }
 
 /**
- * リスト内インライン子タスク表示（└スタイル）
+ * リスト内インラインサブタスク（アコーディオン・再帰）
+ * depth=0: カード直下, depth>=1: ネスト
  */
-async function loadInlineSubtasks(parentId, container) {
+async function loadInlineSubtasks(parentId, container, depth) {
+    container.innerHTML = '<div class="list-subtask-loading">…</div>';
     try {
         const data = await apiCall(`/tasks/subtasks?user_id=${encodeURIComponent(userId)}&parent_id=${parentId}`);
         container.innerHTML = '';
-        (data || []).filter(s => s.complete_at !== 1).forEach(sub => {
+        const active = (data || []).filter(s => s.complete_at !== 1);
+
+        for (const sub of active) {
             const row = document.createElement('div');
             row.className = 'list-subtask-row';
-            row.innerHTML = `
-                <span class="list-subtask-indent">└</span>
-                <span class="list-subtask-name">${escapeHtml(sub.task_name)}</span>
-                <button class="list-subtask-check" title="完了">○</button>`;
-            row.querySelector('.list-subtask-check').addEventListener('click', async e => {
+            row.style.paddingLeft = `${20 + depth * 16}px`;
+
+            const indent = document.createElement('span');
+            indent.className = 'list-subtask-indent';
+            indent.textContent = '└';
+
+            const hasKids = sub.subtask_count > 0;
+            let expandBtn = null;
+            let childContainer = null;
+
+            if (hasKids) {
+                expandBtn = document.createElement('button');
+                expandBtn.className = 'list-subtask-expand';
+                expandBtn.textContent = '▶';
+
+                childContainer = document.createElement('div');
+                childContainer.className = 'list-subtask-children';
+                childContainer.style.display = 'none';
+
+                expandBtn.addEventListener('click', async e => {
+                    e.stopPropagation();
+                    const isOpen = childContainer.style.display !== 'none';
+                    if (!isOpen) {
+                        expandBtn.textContent = '▼';
+                        childContainer.style.display = '';
+                        if (!childContainer._loaded) {
+                            childContainer._loaded = true;
+                            await loadInlineSubtasks(sub.id, childContainer, depth + 1);
+                        }
+                    } else {
+                        expandBtn.textContent = '▶';
+                        childContainer.style.display = 'none';
+                    }
+                });
+            } else {
+                const spacer = document.createElement('span');
+                spacer.className = 'list-subtask-expand-spacer';
+                row.appendChild(indent);
+                row.appendChild(spacer);
+            }
+
+            if (hasKids) {
+                row.appendChild(indent);
+                row.appendChild(expandBtn);
+            }
+
+            const nameEl = document.createElement('span');
+            nameEl.className = 'list-subtask-name';
+            nameEl.textContent = sub.task_name;
+
+            const checkBtn = document.createElement('button');
+            checkBtn.className = 'list-subtask-check';
+            checkBtn.title = '完了';
+            checkBtn.textContent = '○';
+            checkBtn.addEventListener('click', async e => {
                 e.stopPropagation();
                 try {
-                    await apiCall('/tasks/action', 'POST', {
-                        user_id: userId, action: 'complete', task_id: sub.id
-                    });
+                    await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'complete', task_id: sub.id });
                     row.remove();
-                    if (!container.children.length) container.remove();
+                    if (childContainer) childContainer.remove();
                     window.refreshTreeIfVisible?.();
                 } catch (err) { console.error(err); }
             });
+
+            row.append(nameEl, checkBtn);
             container.appendChild(row);
-        });
-        if (!container.children.length) container.remove();
-    } catch (e) { container.remove(); }
+            if (childContainer) container.appendChild(childContainer);
+        }
+
+        if (!container.children.length) {
+            container.innerHTML = '<div class="list-subtask-empty">サブタスクなし</div>';
+        }
+    } catch (e) { container.innerHTML = ''; }
 }
 
 /**
