@@ -203,7 +203,31 @@ Deno.serve(async (req: Request) => {
         .order('sort_order', { ascending: true });
 
       if (error) return errorResponse(error.message, 500);
-      return jsonResponse(data ?? []);
+
+      // 直下の孫タスク件数（未完了・完了）を付加
+      const tasks = data ?? [];
+      const taskIds = tasks.map((t) => t.id);
+      const incompleteMap: Record<number, number> = {};
+      const completedMap: Record<number, number> = {};
+      if (taskIds.length > 0) {
+        const { data: gc } = await supabase
+          .from('tasks')
+          .select('parent_task_id, complete_at')
+          .in('parent_task_id', taskIds)
+          .eq('user_id', user_id);
+        for (const row of gc ?? []) {
+          if (row.complete_at === 1) {
+            completedMap[row.parent_task_id] = (completedMap[row.parent_task_id] ?? 0) + 1;
+          } else {
+            incompleteMap[row.parent_task_id] = (incompleteMap[row.parent_task_id] ?? 0) + 1;
+          }
+        }
+      }
+      return jsonResponse(tasks.map((t) => ({
+        ...t,
+        subtask_count: incompleteMap[t.id] ?? 0,
+        completed_subtask_count: completedMap[t.id] ?? 0,
+      })));
     }
 
     // GET /tasks/tree?user_id=

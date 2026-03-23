@@ -1749,6 +1749,55 @@ select {
 .list-subtask-check:hover { background: rgba(76,175,80,0.15); color: #4caf50; border-color: #4caf50; }
 [data-theme="dark"] .list-subtask-row { border-left-color: #2c2c3e; color: #a0aec0; }
 
+/* ─── バブルアップ式末端カード ─── */
+.inline-leaf-card {
+    position: relative; overflow: hidden; touch-action: pan-y;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    background: var(--bg-card);
+}
+[data-theme="dark"] .inline-leaf-card { border-bottom-color: rgba(255,255,255,0.06); }
+
+.inline-leaf-sl {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; min-height: 44px;
+    background: var(--bg-card); position: relative; z-index: 1;
+    will-change: transform;
+}
+.inline-leaf-rail {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: stretch; width: 0; overflow: hidden;
+    transition: width 0.2s;
+}
+.inline-leaf-del {
+    padding: 0 16px; border: none; font-size: 12px; cursor: pointer;
+    background: var(--power-red); color: #fff; flex-shrink: 0; white-space: nowrap;
+}
+
+/* バッジ */
+.inline-badge-left {
+    min-width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(255,159,67,0.18); color: #ff9f43;
+    font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.inline-badge-left.solo { opacity: 0.35; }
+.inline-badge-right {
+    min-width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(38,222,129,0.18); color: #26de81;
+    font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-left: auto;
+}
+.inline-indent { color: var(--text-muted); flex-shrink: 0; font-size: 13px; }
+.inline-task-name {
+    flex: 1; font-size: 13px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-primary);
+}
+
+/* コンテナのパディングをリセット */
+.card-inline-subtasks { padding: 0 !important; }
+
 /* ── サブタスク展開ボタン ── */
 .list-subtask-expand {
     background: none; border: none; color: var(--text-muted);

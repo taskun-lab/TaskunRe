@@ -352,36 +352,35 @@ function createCardEditPanel(t) {
  */
 function toggleCardEditPanel(wrap) {
     const isOpen = wrap.classList.contains('expanded');
+    const t = wrap.__taskData;
+
+    // 他の開いているカードを全部閉じる
+    document.querySelectorAll('.card.expanded').forEach(c => {
+        c.classList.remove('expanded');
+        const prev = c.querySelector('.card-inline-subtasks');
+        if (prev) prev.style.display = 'none';
+    });
+
     if (!isOpen) {
-        // 他のカードを閉じる
-        document.querySelectorAll('.card.expanded').forEach(c => {
-            c.classList.remove('expanded');
-            const prev = c.querySelector('.card-inline-subtasks');
-            if (prev) prev.style.display = 'none';
-        });
-        // 編集パネルのサブタスクを初回ロード
-        const panel = wrap.querySelector('.card-edit-panel');
-        const list  = panel?.querySelector('.card-subtask-list');
-        if (list && !list._loaded) {
-            list._loaded = true;
-            const t = wrap.__taskData;
-            if (t) loadSubtasks(t.id, list);
-        }
-        // インラインサブタスク（アコーディオン）を表示
-        const t = wrap.__taskData;
         const inlineSubs = wrap.querySelector('.card-inline-subtasks');
-        if (t && inlineSubs) {
-            inlineSubs.style.display = '';
-            if (!inlineSubs._loaded) {
-                inlineSubs._loaded = true;
-                loadInlineSubtasks(t.id, inlineSubs, 0);
+        if (t && t.subtask_count > 0) {
+            // サブタスクあり → バブルアップ表示（編集パネルは開かない）
+            if (inlineSubs) {
+                inlineSubs.style.display = '';
+                renderBubbleUpSubtasks(t.id, inlineSubs);
+            }
+        } else {
+            // サブタスクなし → 従来の編集パネルを開く
+            const panel = wrap.querySelector('.card-edit-panel');
+            const list  = panel?.querySelector('.card-subtask-list');
+            if (list && !list._loaded) {
+                list._loaded = true;
+                if (t) loadSubtasks(t.id, list);
             }
         }
-    } else {
-        const inlineSubs = wrap.querySelector('.card-inline-subtasks');
-        if (inlineSubs) inlineSubs.style.display = 'none';
+        wrap.classList.add('expanded');
     }
-    wrap.classList.toggle('expanded', !isOpen);
+    // isOpen の場合は既に閉じ済み（上のforEachで）なので何もしない
 }
 
 /**
@@ -600,92 +599,155 @@ async function loadSubtasks(parentId, container) {
 }
 
 /**
- * リスト内インラインサブタスク（アコーディオン・再帰）
- * depth=0: カード直下, depth>=1: ネスト
+ * バブルアップ式末端タスク表示
+ * rootId: 起点タスクID（クエストや親タスク）
+ * container: .card-inline-subtasks 要素
  */
-async function loadInlineSubtasks(parentId, container, depth) {
+async function renderBubbleUpSubtasks(rootId, container) {
     container.innerHTML = '<div class="list-subtask-loading">…</div>';
     try {
-        const data = await apiCall(`/tasks/subtasks?user_id=${encodeURIComponent(userId)}&parent_id=${parentId}`);
+        const items = [];
+        await collectLeafItems(rootId, items);
         container.innerHTML = '';
-        const active = (data || []).filter(s => s.complete_at !== 1);
-
-        for (const sub of active) {
-            const row = document.createElement('div');
-            row.className = 'list-subtask-row';
-            row.style.paddingLeft = `${20 + depth * 16}px`;
-
-            const indent = document.createElement('span');
-            indent.className = 'list-subtask-indent';
-            indent.textContent = '└';
-
-            const hasKids = sub.subtask_count > 0;
-            let expandBtn = null;
-            let childContainer = null;
-
-            if (hasKids) {
-                expandBtn = document.createElement('button');
-                expandBtn.className = 'list-subtask-expand';
-                expandBtn.textContent = '▶';
-
-                childContainer = document.createElement('div');
-                childContainer.className = 'list-subtask-children';
-                childContainer.style.display = 'none';
-
-                expandBtn.addEventListener('click', async e => {
-                    e.stopPropagation();
-                    const isOpen = childContainer.style.display !== 'none';
-                    if (!isOpen) {
-                        expandBtn.textContent = '▼';
-                        childContainer.style.display = '';
-                        if (!childContainer._loaded) {
-                            childContainer._loaded = true;
-                            await loadInlineSubtasks(sub.id, childContainer, depth + 1);
-                        }
-                    } else {
-                        expandBtn.textContent = '▶';
-                        childContainer.style.display = 'none';
-                    }
-                });
-            } else {
-                const spacer = document.createElement('span');
-                spacer.className = 'list-subtask-expand-spacer';
-                row.appendChild(indent);
-                row.appendChild(spacer);
-            }
-
-            if (hasKids) {
-                row.appendChild(indent);
-                row.appendChild(expandBtn);
-            }
-
-            const nameEl = document.createElement('span');
-            nameEl.className = 'list-subtask-name';
-            nameEl.textContent = sub.task_name;
-
-            const checkBtn = document.createElement('button');
-            checkBtn.className = 'list-subtask-check';
-            checkBtn.title = '完了';
-            checkBtn.textContent = '○';
-            checkBtn.addEventListener('click', async e => {
-                e.stopPropagation();
-                try {
-                    await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'complete', task_id: sub.id });
-                    row.remove();
-                    if (childContainer) childContainer.remove();
-                    window.refreshTreeIfVisible?.();
-                } catch (err) { console.error(err); }
-            });
-
-            row.append(nameEl, checkBtn);
-            container.appendChild(row);
-            if (childContainer) container.appendChild(childContainer);
-        }
-
-        if (!container.children.length) {
+        if (items.length === 0) {
             container.innerHTML = '<div class="list-subtask-empty">サブタスクなし</div>';
+            return;
         }
-    } catch (e) { container.innerHTML = ''; }
+        items.forEach(item => container.appendChild(buildLeafCard(item, rootId, container)));
+    } catch (e) {
+        container.innerHTML = '';
+    }
+}
+
+/**
+ * 再帰的に末端タスクを収集
+ */
+async function collectLeafItems(parentId, items) {
+    const data = await apiCall(`/tasks/subtasks?user_id=${encodeURIComponent(userId)}&parent_id=${parentId}`);
+    const incomplete = (data || []).filter(t => t.complete_at !== 1);
+    for (const task of incomplete) {
+        if (task.subtask_count === 0) {
+            // 末端（純粋な葉 or バブルアップ済み）
+            items.push({
+                task,
+                leftBadge: incomplete.length,
+                rightBadge: task.completed_subtask_count || null,
+            });
+        } else {
+            // 未完了の子がいる → 再帰
+            await collectLeafItems(task.id, items);
+        }
+    }
+}
+
+/**
+ * 末端カード構築（コンパクトスワイプカード）
+ */
+function buildLeafCard(item, rootId, container) {
+    const { task, leftBadge, rightBadge } = item;
+    const wrap = document.createElement('div');
+    wrap.className = 'inline-leaf-card';
+
+    // アクションレール（削除ボタン）
+    const rail = document.createElement('div');
+    rail.className = 'inline-leaf-rail';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'inline-leaf-del';
+    delBtn.textContent = '削除';
+    delBtn.addEventListener('click', async e => {
+        e.stopPropagation();
+        try {
+            await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'delete', task_id: task.id });
+            await renderBubbleUpSubtasks(rootId, container);
+            window.refreshTreeIfVisible?.();
+        } catch (err) { console.error(err); }
+    });
+    rail.appendChild(delBtn);
+
+    // スライド部分
+    const sl = document.createElement('div');
+    sl.className = 'inline-leaf-sl';
+
+    // 左バッジ（未完了兄弟数）
+    const lBadge = document.createElement('div');
+    lBadge.className = 'inline-badge-left' + (leftBadge <= 1 ? ' solo' : '');
+    lBadge.textContent = leftBadge;
+
+    // └ インデント
+    const indent = document.createElement('span');
+    indent.className = 'inline-indent';
+    indent.textContent = '└';
+
+    // タスク名
+    const nameEl = document.createElement('span');
+    nameEl.className = 'inline-task-name';
+    nameEl.textContent = task.task_name || '(無題)';
+
+    sl.append(lBadge, indent, nameEl);
+
+    // 右バッジ（完了済み子タスク数 = バブルアップの場合のみ）
+    if (rightBadge) {
+        const rBadge = document.createElement('div');
+        rBadge.className = 'inline-badge-right';
+        rBadge.textContent = rightBadge;
+        sl.appendChild(rBadge);
+    }
+
+    wrap.append(rail, sl);
+
+    // ── スワイプ（右=完了, 左=削除ボタン） ──
+    let startX = 0, currentX = 0, swiping = false;
+    const COMPLETE_THR = 80;  // 右スワイプで完了するしきい値
+    const DELETE_OPEN  = -60; // 左スワイプで削除ボタンを開くしきい値
+    const DEL_WIDTH    = 64;
+
+    sl.addEventListener('pointerdown', e => {
+        if (e.target.closest('button')) return;
+        startX = e.clientX; currentX = 0; swiping = true;
+        sl.style.transition = 'none';
+        sl.setPointerCapture(e.pointerId);
+    });
+    sl.addEventListener('pointermove', e => {
+        if (!swiping) return;
+        currentX = e.clientX - startX;
+        sl.style.transform = `translateX(${currentX}px)`;
+    });
+    sl.addEventListener('pointerup', async () => {
+        if (!swiping) return;
+        swiping = false;
+        sl.style.transition = '';
+        if (currentX > COMPLETE_THR) {
+            // 右スワイプ → 完了
+            sl.style.transform = `translateX(110%)`;
+            try {
+                await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'complete', task_id: task.id });
+                await renderBubbleUpSubtasks(rootId, container);
+                window.refreshTreeIfVisible?.();
+                loadList(); // 親カードの subtask_count バッジを更新
+            } catch (err) {
+                sl.style.transform = '';
+                console.error(err);
+            }
+        } else if (currentX < DELETE_OPEN) {
+            // 左スワイプ → 削除ボタン表示
+            sl.style.transform = `translateX(-${DEL_WIDTH}px)`;
+            rail.style.width = `${DEL_WIDTH}px`;
+        } else {
+            sl.style.transform = '';
+        }
+    });
+    sl.addEventListener('pointercancel', () => {
+        swiping = false; sl.style.transition = ''; sl.style.transform = '';
+    });
+
+    // 削除ボタン以外をタップしたら閉じる
+    wrap.addEventListener('click', e => {
+        if (!e.target.closest('.inline-leaf-rail') && currentX < 0) {
+            sl.style.transform = ''; currentX = 0;
+        }
+    });
+
+    return wrap;
 }
 
 /**
