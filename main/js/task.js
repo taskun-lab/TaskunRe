@@ -181,6 +181,8 @@ function createTaskCard(t, isCompleted, priority) {
     const inlineSubs = document.createElement('div');
     inlineSubs.className = 'card-inline-subtasks';
     inlineSubs.style.display = 'none';
+    // 子カードのスワイプが親カードに伝播しないよう隔離
+    inlineSubs.addEventListener('pointerdown', e => e.stopPropagation());
     wrap.append(rail, sl, editPanel, inlineSubs);
 
     // === 改良版スワイプ機能を適用 ===
@@ -602,27 +604,29 @@ async function loadSubtasks(parentId, container) {
  * バブルアップ式末端タスク表示
  * rootId: 起点タスクID（クエストや親タスク）
  * container: .card-inline-subtasks 要素
+ * silent: true の場合ローディング表示をスキップ（楽観的更新用）
  */
-async function renderBubbleUpSubtasks(rootId, container) {
-    container.innerHTML = '<div class="list-subtask-loading">…</div>';
+async function renderBubbleUpSubtasks(rootId, container, silent = false) {
+    if (!silent) container.innerHTML = '<div class="list-subtask-loading">…</div>';
     try {
         const items = [];
-        await collectLeafItems(rootId, items);
+        await collectLeafItems(rootId, items, 0);
         container.innerHTML = '';
         if (items.length === 0) {
-            container.innerHTML = '<div class="list-subtask-empty">サブタスクなし</div>';
+            container.innerHTML = '<div class="list-subtask-empty">全タスク完了！🎉</div>';
             return;
         }
         items.forEach(item => container.appendChild(buildLeafCard(item, rootId, container)));
     } catch (e) {
-        container.innerHTML = '';
+        if (!silent) container.innerHTML = '';
     }
 }
 
 /**
  * 再帰的に末端タスクを収集
+ * depth: 起点からの中間タスク数（直下=0, 孫=1, …）
  */
-async function collectLeafItems(parentId, items) {
+async function collectLeafItems(parentId, items, depth) {
     const data = await apiCall(`/tasks/subtasks?user_id=${encodeURIComponent(userId)}&parent_id=${parentId}`);
     const incomplete = (data || []).filter(t => t.complete_at !== 1);
     for (const task of incomplete) {
@@ -630,62 +634,58 @@ async function collectLeafItems(parentId, items) {
             // 末端（純粋な葉 or バブルアップ済み）
             items.push({
                 task,
-                leftBadge: incomplete.length,
+                leftBadge: depth > 0 ? depth : null,   // 直下は数字なし、孫以降は中間数を表示
                 rightBadge: task.completed_subtask_count || null,
             });
         } else {
             // 未完了の子がいる → 再帰
-            await collectLeafItems(task.id, items);
+            await collectLeafItems(task.id, items, depth + 1);
         }
     }
 }
 
 /**
- * 末端カード構築（コンパクトスワイプカード）
+ * 末端カード構築（SwipeableRow を使った従来と同じスワイプUI）
  */
 function buildLeafCard(item, rootId, container) {
     const { task, leftBadge, rightBadge } = item;
+
     const wrap = document.createElement('div');
-    wrap.className = 'inline-leaf-card';
+    wrap.className = 'card inline-leaf-card';
 
-    // アクションレール（削除ボタン）
+    // ── アクションレール ──
     const rail = document.createElement('div');
-    rail.className = 'inline-leaf-rail';
-    const delBtn = document.createElement('button');
-    delBtn.className = 'inline-leaf-del';
-    delBtn.textContent = '削除';
-    delBtn.addEventListener('click', async e => {
-        e.stopPropagation();
-        try {
-            await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'delete', task_id: task.id });
-            await renderBubbleUpSubtasks(rootId, container);
-            window.refreshTreeIfVisible?.();
-        } catch (err) { console.error(err); }
-    });
-    rail.appendChild(delBtn);
+    rail.className = 'actions-rail';
 
-    // スライド部分
+    const actLeft = document.createElement('div');
+    actLeft.className = 'actions-left';
+
+    const actRight = document.createElement('div');
+    actRight.className = 'actions-right';
+
+    rail.append(actLeft, actRight);
+
+    // ── スライド部分（.sl が SwipeableRow に必須）──
     const sl = document.createElement('div');
-    sl.className = 'inline-leaf-sl';
+    sl.className = 'sl inline-leaf-sl';
 
-    // 左バッジ（未完了兄弟数）
-    const lBadge = document.createElement('div');
-    lBadge.className = 'inline-badge-left' + (leftBadge <= 1 ? ' solo' : '');
-    lBadge.textContent = leftBadge;
+    if (leftBadge) {
+        const lBadge = document.createElement('div');
+        lBadge.className = 'inline-badge-left';
+        lBadge.textContent = leftBadge;
+        sl.appendChild(lBadge);
+    }
 
-    // └ インデント
     const indent = document.createElement('span');
     indent.className = 'inline-indent';
     indent.textContent = '└';
 
-    // タスク名
     const nameEl = document.createElement('span');
     nameEl.className = 'inline-task-name';
     nameEl.textContent = task.task_name || '(無題)';
 
-    sl.append(lBadge, indent, nameEl);
+    sl.append(indent, nameEl);
 
-    // 右バッジ（完了済み子タスク数 = バブルアップの場合のみ）
     if (rightBadge) {
         const rBadge = document.createElement('div');
         rBadge.className = 'inline-badge-right';
@@ -695,71 +695,29 @@ function buildLeafCard(item, rootId, container) {
 
     wrap.append(rail, sl);
 
-    // ── スワイプ（右=完了, 左=削除ボタン） ──
-    const COMPLETE_THR = 80;
-    const DELETE_OPEN  = -60;
-    const DEL_WIDTH    = 64;
-    let startX = 0, currentX = 0, swiping = false, railOpen = false;
-
-    const closeRail = () => {
-        railOpen = false;
-        sl.style.transition = '';
-        sl.style.transform = '';
-        rail.style.width = '0';
+    // ── アクション処理（スワイプ完了 / ボタン両方から呼ばれる）──
+    const onAction = async (actionType) => {
+        try {
+            await apiCall('/tasks/action', 'POST', { user_id: userId, action: actionType, task_id: task.id });
+            // 親クエストは自動完了させない。サブタスク欄はそのまま維持
+            await renderBubbleUpSubtasks(rootId, container, true);  // silent: ローディング表示なし
+            loadList();  // 親カードのバッジを更新
+        } catch (err) {
+            console.error(err);
+            renderBubbleUpSubtasks(rootId, container);
+        }
     };
 
-    sl.addEventListener('pointerdown', e => {
-        if (e.target.closest('button')) return;
-        e.stopPropagation();
-        startX = e.clientX; currentX = 0; swiping = true;
-        sl.style.transition = 'none';
-        sl.setPointerCapture(e.pointerId);
-    });
-    sl.addEventListener('pointermove', e => {
-        if (!swiping) return;
-        e.stopPropagation();
-        currentX = e.clientX - startX;
-        const baseX = railOpen ? -DEL_WIDTH : 0;
-        sl.style.transform = `translateX(${baseX + currentX}px)`;
-    });
-    sl.addEventListener('pointerup', async e => {
-        if (!swiping) return;
-        e.stopPropagation();
-        swiping = false;
-        sl.style.transition = '';
-        if (!railOpen && currentX > COMPLETE_THR) {
-            sl.style.transform = `translateX(110%)`;
-            try {
-                await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'complete', task_id: task.id });
-                await renderBubbleUpSubtasks(rootId, container);
-                window.refreshTreeIfVisible?.();
-                loadList();
-            } catch (err) {
-                sl.style.transform = '';
-                console.error(err);
-            }
-        } else if (!railOpen && currentX < DELETE_OPEN) {
-            railOpen = true;
-            sl.style.transform = `translateX(-${DEL_WIDTH}px)`;
-            rail.style.width = `${DEL_WIDTH}px`;
-        } else if (railOpen && currentX > 20) {
-            closeRail();
-        } else {
-            sl.style.transform = railOpen ? `translateX(-${DEL_WIDTH}px)` : '';
-        }
-    });
-    sl.addEventListener('pointercancel', () => {
-        swiping = false; sl.style.transition = '';
-        sl.style.transform = railOpen ? `translateX(-${DEL_WIDTH}px)` : '';
-    });
+    // ── ボタン（スワイプ開いた後にタップして実行できる）──
+    actLeft.appendChild(mkBtn('完了', () => onAction('complete'), 'btn-complete'));
+    actRight.appendChild(mkBtn('削除', () => onAction('delete'), 'btn-delete'));
 
-    // レール外タップで閉じる
-    wrap.addEventListener('click', e => {
-        if (railOpen && !e.target.closest('.inline-leaf-rail')) closeRail();
-    });
+    // ── SwipeableRow（従来と同じスワイプライブラリ）──
+    applySwipeToCard(wrap, task, false, onAction);
 
     return wrap;
 }
+
 
 /**
  * HTMLエスケープ
