@@ -351,12 +351,12 @@ function createCardEditPanel(t) {
  * カード編集パネルのトグル
  */
 function toggleCardEditPanel(wrap) {
-    const isOpen = wrap.classList.contains('expanded');
     const t = wrap.__taskData;
+    const isOpen = wrap.classList.contains('expanded') || wrap.classList.contains('bubble-open');
 
     // 他の開いているカードを全部閉じる
-    document.querySelectorAll('.card.expanded').forEach(c => {
-        c.classList.remove('expanded');
+    document.querySelectorAll('.card.expanded, .card.bubble-open').forEach(c => {
+        c.classList.remove('expanded', 'bubble-open');
         const prev = c.querySelector('.card-inline-subtasks');
         if (prev) prev.style.display = 'none';
     });
@@ -364,11 +364,12 @@ function toggleCardEditPanel(wrap) {
     if (!isOpen) {
         const inlineSubs = wrap.querySelector('.card-inline-subtasks');
         if (t && t.subtask_count > 0) {
-            // サブタスクあり → バブルアップ表示（編集パネルは開かない）
+            // サブタスクあり → バブルアップ表示（expanded は使わない＝edit panel が開かない）
             if (inlineSubs) {
                 inlineSubs.style.display = '';
                 renderBubbleUpSubtasks(t.id, inlineSubs);
             }
+            wrap.classList.add('bubble-open');
         } else {
             // サブタスクなし → 従来の編集パネルを開く
             const panel = wrap.querySelector('.card-edit-panel');
@@ -377,10 +378,9 @@ function toggleCardEditPanel(wrap) {
                 list._loaded = true;
                 if (t) loadSubtasks(t.id, list);
             }
+            wrap.classList.add('expanded');
         }
-        wrap.classList.add('expanded');
     }
-    // isOpen の場合は既に閉じ済み（上のforEachで）なので何もしない
 }
 
 /**
@@ -696,55 +696,66 @@ function buildLeafCard(item, rootId, container) {
     wrap.append(rail, sl);
 
     // ── スワイプ（右=完了, 左=削除ボタン） ──
-    let startX = 0, currentX = 0, swiping = false;
-    const COMPLETE_THR = 80;  // 右スワイプで完了するしきい値
-    const DELETE_OPEN  = -60; // 左スワイプで削除ボタンを開くしきい値
+    const COMPLETE_THR = 80;
+    const DELETE_OPEN  = -60;
     const DEL_WIDTH    = 64;
+    let startX = 0, currentX = 0, swiping = false, railOpen = false;
+
+    const closeRail = () => {
+        railOpen = false;
+        sl.style.transition = '';
+        sl.style.transform = '';
+        rail.style.width = '0';
+    };
 
     sl.addEventListener('pointerdown', e => {
         if (e.target.closest('button')) return;
+        e.stopPropagation();
         startX = e.clientX; currentX = 0; swiping = true;
         sl.style.transition = 'none';
         sl.setPointerCapture(e.pointerId);
     });
     sl.addEventListener('pointermove', e => {
         if (!swiping) return;
+        e.stopPropagation();
         currentX = e.clientX - startX;
-        sl.style.transform = `translateX(${currentX}px)`;
+        const baseX = railOpen ? -DEL_WIDTH : 0;
+        sl.style.transform = `translateX(${baseX + currentX}px)`;
     });
-    sl.addEventListener('pointerup', async () => {
+    sl.addEventListener('pointerup', async e => {
         if (!swiping) return;
+        e.stopPropagation();
         swiping = false;
         sl.style.transition = '';
-        if (currentX > COMPLETE_THR) {
-            // 右スワイプ → 完了
+        if (!railOpen && currentX > COMPLETE_THR) {
             sl.style.transform = `translateX(110%)`;
             try {
                 await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'complete', task_id: task.id });
                 await renderBubbleUpSubtasks(rootId, container);
                 window.refreshTreeIfVisible?.();
-                loadList(); // 親カードの subtask_count バッジを更新
+                loadList();
             } catch (err) {
                 sl.style.transform = '';
                 console.error(err);
             }
-        } else if (currentX < DELETE_OPEN) {
-            // 左スワイプ → 削除ボタン表示
+        } else if (!railOpen && currentX < DELETE_OPEN) {
+            railOpen = true;
             sl.style.transform = `translateX(-${DEL_WIDTH}px)`;
             rail.style.width = `${DEL_WIDTH}px`;
+        } else if (railOpen && currentX > 20) {
+            closeRail();
         } else {
-            sl.style.transform = '';
+            sl.style.transform = railOpen ? `translateX(-${DEL_WIDTH}px)` : '';
         }
     });
     sl.addEventListener('pointercancel', () => {
-        swiping = false; sl.style.transition = ''; sl.style.transform = '';
+        swiping = false; sl.style.transition = '';
+        sl.style.transform = railOpen ? `translateX(-${DEL_WIDTH}px)` : '';
     });
 
-    // 削除ボタン以外をタップしたら閉じる
+    // レール外タップで閉じる
     wrap.addEventListener('click', e => {
-        if (!e.target.closest('.inline-leaf-rail') && currentX < 0) {
-            sl.style.transform = ''; currentX = 0;
-        }
+        if (railOpen && !e.target.closest('.inline-leaf-rail')) closeRail();
     });
 
     return wrap;
