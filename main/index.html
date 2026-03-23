@@ -28,8 +28,13 @@
                     <button class="bar-btn dev-menu-btn" id="devMenuBtn">⋯</button>
                 </div>
             </div>
+            <div class="list-view-toggle">
+                <button class="list-view-btn active" id="btnViewList">リスト</button>
+                <button class="list-view-btn" id="btnViewTree">ツリー</button>
+            </div>
         </header>
-        <main>
+        <!-- リストビュー -->
+        <main id="listView">
             <div id="missionTaskContainer"></div>
             <div class="list-section-label list-section-urgent" id="urgentSection" style="display:none;">⚡ 今日中</div>
             <div id="urgentList" class="list"></div>
@@ -46,6 +51,10 @@
                     <div id="completed" class="list"></div>
                 </div>
             </div>
+        </main>
+        <!-- ツリービュー -->
+        <main id="treeView" style="display:none;">
+            <div id="treeContainer"></div>
         </main>
     </div>
 
@@ -587,5 +596,6 @@
     <script src="js/modal.js"></script>
     <script src="js/developer.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/tree.js"></script>
 </body>
 </html>

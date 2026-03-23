@@ -147,6 +147,15 @@ function createTaskCard(t, isCompleted, priority) {
     titleEl.className = "title";
     titleEl.textContent = t.task_name || t.title || "(無題)";
     titleArea.appendChild(titleEl);
+
+    // サブタスク件数バッジ（クエスト用）
+    if (!isCompleted && t.task_type === 'mission' && t.subtask_count > 0) {
+        const badge = document.createElement("span");
+        badge.className = "subtask-count-badge";
+        badge.textContent = `${t.subtask_count}`;
+        titleArea.appendChild(badge);
+    }
+
     contentArea.appendChild(titleArea);
 
     // リマインド表示（タイトル下に配置）
@@ -223,6 +232,13 @@ function createCardEditPanel(t) {
             <div class="card-edit-reason-group" style="${isQuest ? '' : 'display:none'}">
                 <textarea class="form-input card-edit-reason" rows="2" placeholder="なぜやるの？（任意）" style="resize:none;margin-bottom:8px;">${escapeHtml(t.reason || '')}</textarea>
             </div>
+            <div class="card-subtask-section" style="${isQuest ? '' : 'display:none'}">
+                <div class="card-subtask-list" id="subtaskList_${t.id}"></div>
+                <div class="card-add-subtask-row">
+                    <input type="text" class="form-input card-add-subtask-input" placeholder="サブタスクを追加…" style="flex:1;margin:0;" />
+                    <button class="card-add-subtask-btn">＋</button>
+                </div>
+            </div>
             <div class="card-edit-actions">
                 <button class="card-edit-cancel-btn">キャンセル</button>
                 <button class="card-edit-save-btn">💪 保存</button>
@@ -234,10 +250,40 @@ function createCardEditPanel(t) {
             e.stopPropagation();
             panel.querySelectorAll('.card-type-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            const isM = btn.dataset.type === 'mission';
             const rg = panel.querySelector('.card-edit-reason-group');
-            if (rg) rg.style.display = btn.dataset.type === 'mission' ? 'block' : 'none';
+            if (rg) rg.style.display = isM ? 'block' : 'none';
+            const ss = panel.querySelector('.card-subtask-section');
+            if (ss) ss.style.display = isM ? '' : 'none';
         });
     });
+
+    // サブタスク読み込み（クエストのみ）
+    if (isQuest) {
+        loadSubtasks(t.id, panel.querySelector(`#subtaskList_${t.id}`));
+    }
+
+    // サブタスク追加（loadListを避けて直接API呼び出し）
+    const addSubtaskBtn = panel.querySelector('.card-add-subtask-btn');
+    const addSubtaskInput = panel.querySelector('.card-add-subtask-input');
+    if (addSubtaskBtn && addSubtaskInput) {
+        const doAddSubtask = async () => {
+            const name = addSubtaskInput.value.trim();
+            if (!name) return;
+            addSubtaskInput.value = '';
+            try {
+                await apiCall('/tasks/action', 'POST', {
+                    user_id: userId, action: 'add_subtask',
+                    task_name: name, parent_task_id: t.id
+                });
+                loadSubtasks(t.id, panel.querySelector(`#subtaskList_${t.id}`));
+            } catch (e) {
+                console.error('サブタスク追加失敗', e);
+            }
+        };
+        addSubtaskBtn.addEventListener('click', (e) => { e.stopPropagation(); doAddSubtask(); });
+        addSubtaskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); doAddSubtask(); } });
+    }
 
     panel.querySelector('.card-edit-cancel-btn').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -446,6 +492,50 @@ function mkBtn(label, onClick, cls) {
         onClick();
     });
     return b;
+}
+
+/**
+ * サブタスクリストを読み込んでレンダリング
+ */
+async function loadSubtasks(parentId, container) {
+    if (!container) return;
+    container.innerHTML = '<div class="subtask-loading">…</div>';
+    try {
+        const data = await apiCall(`/tasks/subtasks?user_id=${encodeURIComponent(userId)}&parent_id=${parentId}`);
+        container.innerHTML = '';
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="subtask-empty">サブタスクはまだありません</div>';
+            return;
+        }
+        data.forEach(sub => {
+            const row = document.createElement('div');
+            row.className = `subtask-row${sub.complete_at === 1 ? ' subtask-done' : ''}`;
+            row.innerHTML = `
+                <button class="subtask-check-btn" title="${sub.complete_at === 1 ? '未完了に戻す' : '完了'}">
+                    ${sub.complete_at === 1 ? '✓' : '○'}
+                </button>
+                <span class="subtask-name">${escapeHtml(sub.task_name)}</span>
+                <button class="subtask-del-btn" title="削除">×</button>`;
+            row.querySelector('.subtask-check-btn').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const act = sub.complete_at === 1 ? 'uncomplete' : 'complete';
+                try {
+                    await apiCall('/tasks/action', 'POST', { user_id: userId, action: act, task_id: sub.id });
+                } catch (err) { console.error(err); }
+                loadSubtasks(parentId, container);
+            });
+            row.querySelector('.subtask-del-btn').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                try {
+                    await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'delete', task_id: sub.id });
+                } catch (err) { console.error(err); }
+                loadSubtasks(parentId, container);
+            });
+            container.appendChild(row);
+        });
+    } catch (e) {
+        container.innerHTML = '<div class="subtask-empty">読み込み失敗</div>';
+    }
 }
 
 /**
