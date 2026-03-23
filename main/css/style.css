@@ -518,6 +518,61 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 [data-theme="dark"] .tree-row { background: #1c1c1e; border-color: #2c2c2e; }
 [data-theme="dark"] .tree-row:active { background: #111; }
 
+/* 完了ノード */
+.tree-node-done > .tree-row { opacity: 0.5; }
+.tree-node-done .tree-name { text-decoration: line-through; }
+.tree-node-done .tree-type-icon { color: #4caf50; }
+.tree-completed-date {
+    font-size: 10px; color: var(--text-muted); flex-shrink: 0;
+    background: var(--bg-main); padding: 1px 6px; border-radius: 8px;
+}
+
+/* ツリー詳細パネル */
+.tree-detail-panel {
+    display: none; background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    border-left: 3px solid var(--energy-orange);
+}
+.tree-detail-panel.open { display: block; }
+.tree-node-done > .tree-detail-panel { border-left-color: #4caf50; }
+.tree-detail-inner {
+    padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;
+}
+.tree-detail-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700;
+    width: fit-content;
+}
+.tree-detail-badge.done { background: rgba(76,175,80,0.15); color: #4caf50; }
+.tree-detail-row {
+    font-size: 12px; color: var(--text-secondary); line-height: 1.5;
+}
+.tree-progress-bar {
+    height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.tree-progress-fill {
+    height: 100%; background: var(--energy-orange); border-radius: 2px;
+    transition: width 0.3s ease;
+}
+.tree-journal-btn {
+    margin-top: 2px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-main); color: var(--text-primary); font-size: 12px;
+    cursor: pointer; text-align: left; width: 100%;
+}
+.tree-journal-btn:active { background: var(--border); }
+
+/* ジャーナルハイライト（ツリーから遷移時） */
+.journal-card.journal-highlight {
+    animation: journal-flash 0.4s ease 2;
+}
+@keyframes journal-flash {
+    0%, 100% { background: var(--bg-card); }
+    50% { background: rgba(255, 159, 67, 0.2); }
+}
+[data-theme="dark"] .tree-detail-panel { background: #1c1c1e; border-color: #2c2c2e; }
+[data-theme="dark"] .tree-detail-panel { border-left-color: var(--energy-orange); }
+[data-theme="dark"] .tree-node-done > .tree-detail-panel { border-left-color: #4caf50; }
+
 /* urgent フラグトグル行 */
 .urgent-toggle-row {
     display: flex; align-items: center; justify-content: space-between;

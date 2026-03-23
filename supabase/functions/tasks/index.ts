@@ -74,7 +74,7 @@ async function getTaskList(supabase: Supabase, user_id: string) {
   return result;
 }
 
-// サブタスクを再帰的に取得してツリー構造を返す
+// サブタスクを再帰的に取得してツリー構造を返す（ジャーナル紐づけ含む）
 async function getTree(supabase: Supabase, user_id: string) {
   const { data: allTasks, error } = await supabase
     .from('tasks')
@@ -84,12 +84,38 @@ async function getTree(supabase: Supabase, user_id: string) {
 
   if (error) throw new Error(error.message);
 
+  // task_journals からジャーナル紐づけを取得
+  const journalMap: Record<number, { journal_id: string; journal_date: string }> = {};
+  const { data: taskJournals } = await supabase
+    .from('task_journals')
+    .select('task_id, journal_id')
+    .eq('user_id', user_id);
+
+  if (taskJournals && taskJournals.length > 0) {
+    const journalIds = taskJournals.map((tj) => tj.journal_id).filter(Boolean);
+    if (journalIds.length > 0) {
+      const { data: journals } = await supabase
+        .from('journals')
+        .select('id, date')
+        .in('id', journalIds);
+      const journalDateMap: Record<string, string> = {};
+      for (const j of journals ?? []) journalDateMap[j.id] = j.date;
+      for (const tj of taskJournals) {
+        journalMap[tj.task_id] = {
+          journal_id: tj.journal_id,
+          journal_date: journalDateMap[tj.journal_id] ?? '',
+        };
+      }
+    }
+  }
+
   // ツリー構造に組み立て
   const map: Record<number, unknown> = {};
   const roots: unknown[] = [];
 
   for (const t of allTasks ?? []) {
-    map[t.id] = { ...t, children: [] };
+    const j = journalMap[t.id];
+    map[t.id] = { ...t, children: [], journal_id: j?.journal_id ?? null, journal_date: j?.journal_date ?? null };
   }
   for (const t of allTasks ?? []) {
     if (t.parent_task_id && map[t.parent_task_id]) {
@@ -298,12 +324,29 @@ Deno.serve(async (req: Request) => {
         }
 
         case 'complete': {
+          const now = new Date();
+          const completedAt = now.toISOString();
+          const completedDate = completedAt.substring(0, 10); // YYYY-MM-DD
+
           const { error } = await supabase
             .from('tasks')
-            .update({ complete_at: 1, completed_at: new Date().toISOString() })
+            .update({ complete_at: 1, completed_at: completedAt })
             .eq('id', task_id)
             .eq('user_id', user_id);
           if (error) return errorResponse(error.message, 500);
+
+          // 同日のジャーナルを自動紐づけ
+          const { data: journals } = await supabase
+            .from('journals')
+            .select('id')
+            .eq('user_id', user_id)
+            .eq('date', completedDate)
+            .limit(1);
+          if (journals && journals.length > 0) {
+            await supabase
+              .from('task_journals')
+              .upsert({ user_id, task_id, journal_id: journals[0].id }, { onConflict: 'task_id' });
+          }
 
           // 親クエストへの達成連鎖
           const { data: completedTask } = await supabase
