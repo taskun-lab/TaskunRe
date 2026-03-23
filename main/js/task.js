@@ -47,7 +47,15 @@ function renderList(payload) {
     const tasks = allActive.filter(t => t.task_type !== 'mission' && t.priority_level !== 'critical');
 
     urgent.forEach(t => urgentEl.appendChild(createTaskCard(t, false, 'critical')));
-    quest.forEach(t => questEl.appendChild(createTaskCard(t, false, 'quest')));
+    quest.forEach(t => {
+        questEl.appendChild(createTaskCard(t, false, 'quest'));
+        if (t.subtask_count > 0) {
+            const subRows = document.createElement('div');
+            subRows.className = 'list-subtask-rows';
+            questEl.appendChild(subRows);
+            loadInlineSubtasks(t.id, subRows);
+        }
+    });
     tasks.forEach(t => taskEl.appendChild(createTaskCard(t, false, t.priority_level || 'normal')));
     completed.forEach(t => completedEl.appendChild(createTaskCard(t, true, t.priority_level || 'normal')));
 
@@ -114,7 +122,12 @@ function createTaskCard(t, isCompleted, priority) {
     right.append(
         mkBtn("詳細", () => openDetail(t), "btn-detail"),
         mkBtn("⚡", () => openPriorityModal(t), "btn-priority"),
-        mkBtn("削除", () => action("delete", t.id), "btn-delete")
+        mkBtn("削除", () => {
+            if (t.task_type === 'mission') {
+                if (!confirm(`「${t.task_name || 'このクエスト'}」を削除しますか？\n（配下のタスクもすべて削除されます）`)) return;
+            }
+            action("delete", t.id);
+        }, "btn-delete")
     );
 
     rail.append(left, right);
@@ -182,6 +195,16 @@ function createTaskCard(t, isCompleted, priority) {
         } else if (actionType === 'uncomplete') {
             if (checkTaskLimit()) action("uncomplete", taskId);
         } else if (actionType === 'delete') {
+            const td = wrap.__taskData;
+            if (td?.task_type === 'mission') {
+                if (!confirm(`「${td.task_name || 'このクエスト'}」を削除しますか？\n（配下のタスクもすべて削除されます）`)) {
+                    // スワイプを元に戻す
+                    const slEl = wrap.querySelector('.sl');
+                    if (slEl) { slEl.style.transition = ''; slEl.style.transform = ''; }
+                    wrap.classList.remove('open-right', 'open-left');
+                    return;
+                }
+            }
             action("delete", taskId);
         }
     });
@@ -252,7 +275,7 @@ function createCardEditPanel(t) {
             <div class="card-edit-reason-group" style="${isQuest ? '' : 'display:none'}">
                 <textarea class="form-input card-edit-reason" rows="2" placeholder="なぜやるの？（任意）" style="resize:none;margin-bottom:8px;">${escapeHtml(t.reason || '')}</textarea>
             </div>
-            <div class="card-subtask-section" style="${isQuest ? '' : 'display:none'}">
+            <div class="card-subtask-section">
                 <div class="card-subtask-list" id="subtaskList_${t.id}"></div>
                 <div class="card-add-subtask-row">
                     <input type="text" class="form-input card-add-subtask-input" placeholder="サブタスクを追加…" style="flex:1;margin:0;" />
@@ -273,15 +296,11 @@ function createCardEditPanel(t) {
             const isM = btn.dataset.type === 'mission';
             const rg = panel.querySelector('.card-edit-reason-group');
             if (rg) rg.style.display = isM ? 'block' : 'none';
-            const ss = panel.querySelector('.card-subtask-section');
-            if (ss) ss.style.display = isM ? '' : 'none';
+            // サブタスクセクションはタイプに関わらず常に表示
         });
     });
 
-    // サブタスク読み込み（クエストのみ）
-    if (isQuest) {
-        loadSubtasks(t.id, panel.querySelector(`#subtaskList_${t.id}`));
-    }
+    // サブタスク読み込み（パネル開いたときに遅延ロード: toggleCardEditPanelで実行）
 
     // サブタスク追加（loadListを避けて直接API呼び出し）
     const addSubtaskBtn = panel.querySelector('.card-add-subtask-btn');
@@ -297,6 +316,7 @@ function createCardEditPanel(t) {
                     task_name: name, parent_task_id: t.id
                 });
                 loadSubtasks(t.id, panel.querySelector(`#subtaskList_${t.id}`));
+                window.refreshTreeIfVisible?.();
             } catch (e) {
                 console.error('サブタスク追加失敗', e);
             }
@@ -339,6 +359,14 @@ function toggleCardEditPanel(wrap) {
     const isOpen = wrap.classList.contains('expanded');
     if (!isOpen) {
         document.querySelectorAll('.card.expanded').forEach(c => c.classList.remove('expanded'));
+        // 初回展開時にサブタスクをロード
+        const panel = wrap.querySelector('.card-edit-panel');
+        const list  = panel?.querySelector('.card-subtask-list');
+        if (list && !list._loaded) {
+            list._loaded = true;
+            const t = wrap.__taskData;
+            if (t) loadSubtasks(t.id, list);
+        }
     }
     wrap.classList.toggle('expanded', !isOpen);
 }
@@ -556,6 +584,37 @@ async function loadSubtasks(parentId, container) {
     } catch (e) {
         container.innerHTML = '<div class="subtask-empty">読み込み失敗</div>';
     }
+}
+
+/**
+ * リスト内インライン子タスク表示（└スタイル）
+ */
+async function loadInlineSubtasks(parentId, container) {
+    try {
+        const data = await apiCall(`/tasks/subtasks?user_id=${encodeURIComponent(userId)}&parent_id=${parentId}`);
+        container.innerHTML = '';
+        (data || []).filter(s => s.complete_at !== 1).forEach(sub => {
+            const row = document.createElement('div');
+            row.className = 'list-subtask-row';
+            row.innerHTML = `
+                <span class="list-subtask-indent">└</span>
+                <span class="list-subtask-name">${escapeHtml(sub.task_name)}</span>
+                <button class="list-subtask-check" title="完了">○</button>`;
+            row.querySelector('.list-subtask-check').addEventListener('click', async e => {
+                e.stopPropagation();
+                try {
+                    await apiCall('/tasks/action', 'POST', {
+                        user_id: userId, action: 'complete', task_id: sub.id
+                    });
+                    row.remove();
+                    if (!container.children.length) container.remove();
+                    window.refreshTreeIfVisible?.();
+                } catch (err) { console.error(err); }
+            });
+            container.appendChild(row);
+        });
+        if (!container.children.length) container.remove();
+    } catch (e) { container.remove(); }
 }
 
 /**
