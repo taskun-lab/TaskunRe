@@ -187,6 +187,7 @@ function initPullToRefresh() {
     const THRESHOLD = 70;
 
     container.addEventListener('touchstart', e => {
+        if (window._treeViewActive) { pulling = false; return; }
         if (container.scrollTop === 0) {
             startY = e.touches[0].clientY;
             pulling = true;

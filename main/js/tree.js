@@ -1,6 +1,6 @@
 /* =============================================
-   ムキムキタスくん - ツリービュー（SVGキャンバス v3）
-   横展開 / コズミックダーク / ノードD&D
+   ムキムキタスくん - ツリービュー（SVGキャンバス v4）
+   横展開 / コズミックダーク / ノードD&D接続 / 位置記憶
    ============================================= */
 
 (function () {
@@ -13,38 +13,66 @@
     if (!btnList || !btnTree) return;
 
     // ─── 定数 ────────────────────────────────────
-    const QUEST_R   = 22;    // クエストノード半径
-    const TASK_R    = 9;     // タスクノード半径
-    const V_GAP     = 80;    // 兄弟ノード縦間隔
-    const H_GAP     = 190;   // 親子横間隔
-    const MAX_CHARS = 13;    // ラベル最大文字数
+    const QUEST_R   = 22;
+    const TASK_R    = 9;
+    const V_GAP     = 80;
+    const H_GAP     = 190;
+    const MAX_CHARS = 13;
     const NS        = 'http://www.w3.org/2000/svg';
-    const DRAG_THR  = 6;     // ドラッグ判定閾値(px)
+    const DRAG_THR  = 6;      // ドラッグ判定閾値 (screen px)
+    const DETECT_R  = 90;     // ヒント検出半径 (SVG units)
+    const ACTIVATE  = 42;     // ヒント有効化半径 (SVG units)
 
     // ─── コズミックカラー ────────────────────────
     const C = {
-        bg        : '#080818',
-        edge      : 'rgba(100,120,255,0.35)',
-        edgeDone  : 'rgba(60,60,100,0.25)',
-        quest     : '#ff9f43',
-        task      : '#7c8aff',
-        done      : '#4ade80',
-        drop      : '#ff4757',
-        label     : '#d8e4ff',
-        muted     : '#5a6a9a',
-        badge     : '#4c5bd4',
+        bg       : '#080818',
+        edge     : 'rgba(100,120,255,0.35)',
+        edgeDone : 'rgba(60,60,100,0.25)',
+        quest    : '#ff9f43',
+        task     : '#7c8aff',
+        done     : '#4ade80',
+        drop     : '#ff4757',
+        hint     : '#4c5bd4',
+        hintLine : 'rgba(100,130,255,0.5)',
+        label    : '#d8e4ff',
+        muted    : '#5a6a9a',
+        badge    : '#4c5bd4',
     };
 
     // ─── 状態 ────────────────────────────────────
-    let pan        = { x: 50, y: 60 };
-    let scale      = 1;
-    let svgEl      = null;
-    let gEl        = null;
-    let moveMode   = null;        // { taskId, taskName }
-    let collapsed  = new Set();
-    let lastData   = null;
-    let firstLoad  = true;
-    let nodeOffsets = new Map();  // Map<id, {dx,dy}> — D&D オフセット
+    let pan         = { x: 50, y: 60 };
+    let scale       = 1;
+    let svgEl       = null;
+    let gEl         = null;
+    let hintGroup   = null;
+    let moveMode    = null;
+    let collapsed   = new Set();
+    let lastData    = null;
+    let layoutMapRef = null;  // 現在のレイアウト Map<id, {node,x,y,parentId}>
+    let activeHint  = null;   // { type:'child'|'sibling', targetId, parentId }
+    let nodeOffsets = new Map();
+
+    // ─── セッションストレージ ─────────────────────
+    const SS = {
+        savePZ : () => {
+            try { sessionStorage.setItem('treePZ', JSON.stringify({ x: pan.x, y: pan.y, s: scale })); } catch (_) {}
+        },
+        loadPZ : () => {
+            try {
+                const d = JSON.parse(sessionStorage.getItem('treePZ') || 'null');
+                if (d) { pan.x = d.x; pan.y = d.y; scale = d.s; }
+            } catch (_) {}
+        },
+        saveOff : () => {
+            try { sessionStorage.setItem('treeOff', JSON.stringify([...nodeOffsets])); } catch (_) {}
+        },
+        loadOff : () => {
+            try {
+                const d = JSON.parse(sessionStorage.getItem('treeOff') || 'null');
+                if (d) nodeOffsets = new Map(d);
+            } catch (_) {}
+        },
+    };
 
     // ─── ビュー切替 ──────────────────────────────
     btnList.addEventListener('click', () => {
@@ -53,6 +81,7 @@
         btnTree.classList.remove('active');
         listView.style.display = '';
         treeView.style.display = 'none';
+        window._treeViewActive = false;
     });
 
     btnTree.addEventListener('click', async () => {
@@ -60,22 +89,24 @@
         btnList.classList.remove('active');
         listView.style.display = 'none';
         treeView.style.display = '';
+        window._treeViewActive = true;
         await renderTree();
     });
 
-    // ─── ツリー描画メイン ──────────────────────────
+    // ─── ツリー描画 ──────────────────────────────
     async function renderTree() {
-        // SVGがなければ初期化（パン・ズームも初期値へ）
         if (!svgEl || !svgEl.isConnected) {
             treeContainer.innerHTML = '';
             initSvg();
-            firstLoad = true;
+            SS.loadPZ();
+            SS.loadOff();
         }
         try {
             const data = await apiCall(`/tasks/tree?user_id=${encodeURIComponent(userId)}`);
             lastData = data;
             if (!data || data.length === 0) {
                 gEl.innerHTML = '';
+                hintGroup = null;
                 const t = svgEl_('text', { x: '50%', y: '50%',
                     'text-anchor': 'middle', 'dominant-baseline': 'middle',
                     fill: C.muted, 'font-size': 14 });
@@ -83,25 +114,18 @@
                 gEl.appendChild(t);
                 return;
             }
-            if (firstLoad) {
-                pan = { x: 50, y: 60 };
-                scale = 1;
-                firstLoad = false;
-            }
             redraw(data);
         } catch (e) {
-            gEl.innerHTML = '';
-            const t = svgEl_('text', { x: '50%', y: '50%',
-                'text-anchor': 'middle', 'dominant-baseline': 'middle',
-                fill: C.muted, 'font-size': 14 });
-            t.textContent = '読み込みに失敗しました';
-            gEl.appendChild(t);
+            if (gEl) gEl.innerHTML = '';
+            hintGroup = null;
         }
     }
 
     function redraw(data) {
         if (!gEl) return;
         gEl.innerHTML = '';
+        hintGroup = null;
+        activeHint = null;
 
         const layout = computeLayout(data);
 
@@ -111,17 +135,18 @@
             if (off) { item.x += off.dx; item.y += off.dy; }
         });
 
-        const lmap = new Map(layout.map(i => [i.node.id, i]));
+        layoutMapRef = new Map(layout.map(i => [i.node.id, i]));
 
-        const eg = svgNS('g');
-        const ng = svgNS('g');
-        gEl.appendChild(eg);
-        gEl.appendChild(ng);
+        const eg = svgNS('g');    // エッジ（背面）
+        const ng = svgNS('g');    // ノード
+        const hg = svgNS('g');    // ヒント（前面）
+        hintGroup = hg;
+        gEl.appendChild(eg); gEl.appendChild(ng); gEl.appendChild(hg);
 
         layout.forEach(({ node, x, y }) => {
             if (!collapsed.has(node.id)) {
                 (node.children || []).forEach(child => {
-                    const ci = lmap.get(child.id);
+                    const ci = layoutMapRef.get(child.id);
                     if (ci) drawEdge(eg, x, y, ci.x, ci.y, node, child);
                 });
             }
@@ -133,20 +158,24 @@
 
     // ─── SVG 初期化 ──────────────────────────────
     function initSvg() {
-        treeContainer.style.cssText = 'overflow:hidden;position:relative;';
-        treeContainer.style.height  = `${window.innerHeight - 140}px`;
+        treeContainer.style.cssText =
+            'overflow:hidden;position:relative;overscroll-behavior:none;touch-action:none;';
+        treeContainer.style.height = `${window.innerHeight - 140}px`;
 
         svgEl = svgNS('svg');
         svgEl.setAttribute('width', '100%');
         svgEl.setAttribute('height', '100%');
-        svgEl.style.cssText = `display:block;touch-action:none;cursor:grab;background:${C.bg};`;
+        svgEl.style.cssText =
+            `display:block;touch-action:none;cursor:grab;background:${C.bg};` +
+            '-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;';
 
         // グロウフィルター
         const defs = svgNS('defs');
-        addGlow(defs, 'gq',  '#ff9f43', 8);   // quest
-        addGlow(defs, 'gt',  '#7c8aff', 5);   // task
-        addGlow(defs, 'gd',  '#4ade80', 6);   // done
-        addGlow(defs, 'gdr', '#ff4757', 10);  // drop target
+        addGlow(defs, 'gq',  8);   // quest  オレンジ
+        addGlow(defs, 'gt',  5);   // task   ブルー
+        addGlow(defs, 'gd',  6);   // done   グリーン
+        addGlow(defs, 'gdr', 10);  // drop   レッド
+        addGlow(defs, 'gh',  7);   // hint   インディゴ
         svgEl.appendChild(defs);
 
         gEl = svgNS('g');
@@ -157,14 +186,13 @@
 
         // 背景クリックで詳細を閉じる
         svgEl.addEventListener('click', e => {
-            if (e.target === svgEl || e.target === gEl) {
+            if (e.target === svgEl || e.target === gEl)
                 document.getElementById('tree-detail-overlay')?.remove();
-            }
         });
     }
 
-    function addGlow(defs, id, color, blur) {
-        const f = svgNS('filter');
+    function addGlow(defs, id, blur) {
+        const f  = svgNS('filter');
         f.setAttribute('id', id);
         f.setAttribute('x', '-60%'); f.setAttribute('y', '-60%');
         f.setAttribute('width', '220%'); f.setAttribute('height', '220%');
@@ -180,24 +208,24 @@
         defs.appendChild(f);
     }
 
-    // ─── レイアウト（横展開: depth=X軸, 兄弟=Y軸）──
+    // ─── レイアウト（横展開: depth=X, 兄弟=Y）──────
     function computeLayout(nodes) {
         const all = [];
         let leaf = 0;
 
-        function visit(node, depth) {
+        function visit(node, depth, parentId) {
             const kids = collapsed.has(node.id) ? [] : (node.children || []);
-            const info = { node, depth, x: depth * H_GAP, y: 0 };
+            const info = { node, depth, x: depth * H_GAP, y: 0, parentId };
             all.push(info);
             if (kids.length === 0) {
                 info.y = leaf++ * V_GAP;
             } else {
                 const s = leaf;
-                kids.forEach(c => visit(c, depth + 1));
+                kids.forEach(c => visit(c, depth + 1, node.id));
                 info.y = ((s + leaf - 1) * V_GAP) / 2;
             }
         }
-        nodes.forEach(n => visit(n, 0));
+        nodes.forEach(n => visit(n, 0, null));
         return all;
     }
 
@@ -213,32 +241,30 @@
         g.style.cursor = 'grab';
 
         // ── 円 ──
-        const fill    = isDone ? C.done : isDrop ? C.drop : isQuest ? C.quest : C.task;
-        const glowId  = isDone ? 'gd' : isDrop ? 'gdr' : isQuest ? 'gq' : 'gt';
-        const circle  = svgEl_('circle', {
+        const fill   = isDone ? C.done : isDrop ? C.drop : isQuest ? C.quest : C.task;
+        const gid    = isDone ? 'gd'   : isDrop ? 'gdr'  : isQuest ? 'gq'   : 'gt';
+        const circle = svgEl_('circle', {
             cx: x, cy: y, r: R, fill,
             stroke: 'rgba(255,255,255,0.25)', 'stroke-width': 1.5,
-            filter: `url(#${glowId})`,
+            filter: `url(#${gid})`,
         });
         g.appendChild(circle);
 
-        // ── アイコン（クエスト or 完了チェック）──
+        // ── アイコン ──
         if (isQuest || isDone) {
             const ic = svgEl_('text', {
                 x, y: y + 1,
                 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-                'font-size': isQuest ? 13 : 7,
-                fill: 'white', 'pointer-events': 'none',
+                'font-size': isQuest ? 13 : 7, fill: 'white', 'pointer-events': 'none',
             });
             ic.textContent = isDone ? '✓' : '🎯';
             g.appendChild(ic);
         }
 
-        // ── テキストラベル（ノード右）──
-        const tx = x + R + 8;
+        // ── ラベル ──
         const lbl = truncate(node.task_name || '(無題)', MAX_CHARS);
-        const te = svgEl_('text', {
-            x: tx, y: isDone ? y - 6 : y,
+        const te  = svgEl_('text', {
+            x: x + R + 8, y: isDone ? y - 6 : y,
             'dominant-baseline': 'middle',
             'font-size': isQuest ? 13 : 12,
             'font-weight': isQuest ? 700 : 400,
@@ -249,13 +275,11 @@
         if (isDone) te.setAttribute('text-decoration', 'line-through');
         g.appendChild(te);
 
-        // 完了日（ラベル下）
         if (isDone && node.completed_at) {
             const de = svgEl_('text', {
-                x: tx, y: y + 7,
+                x: x + R + 8, y: y + 7,
                 'dominant-baseline': 'middle',
-                'font-size': 10, fill: C.muted,
-                'pointer-events': 'none',
+                'font-size': 10, fill: C.muted, 'pointer-events': 'none',
             });
             de.textContent = fmtDate(node.completed_at);
             g.appendChild(de);
@@ -269,22 +293,19 @@
                 fill: C.badge, stroke: 'rgba(255,255,255,0.3)', 'stroke-width': 1 });
             const bt = svgEl_('text', { x: bx, y: by + 1,
                 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-                'font-size': 11, fill: 'white', 'font-weight': 700,
-                'pointer-events': 'none' });
+                'font-size': 11, fill: 'white', 'font-weight': 700, 'pointer-events': 'none' });
             bt.textContent = isCol ? '+' : '−';
             bc.style.cursor = 'pointer';
-            const onBadge = e => {
+            bc.addEventListener('pointerdown', e => e.stopPropagation());
+            bc.addEventListener('click', e => {
                 e.stopPropagation();
                 isCol ? collapsed.delete(node.id) : collapsed.add(node.id);
                 if (lastData) redraw(lastData);
-            };
-            bc.addEventListener('pointerdown', e => e.stopPropagation());
-            bc.addEventListener('click', onBadge);
-            g.appendChild(bc);
-            g.appendChild(bt);
+            });
+            g.appendChild(bc); g.appendChild(bt);
         }
 
-        // ── ポインターイベント（タップ vs D&D）──
+        // ── D&D ──
         let tapOk = true, dragging = false, startPx = 0, startPy = 0;
 
         g.addEventListener('pointerdown', e => {
@@ -295,34 +316,51 @@
         });
 
         g.addEventListener('pointermove', e => {
-            const dx = e.clientX - startPx, dy = e.clientY - startPy;
-            if (!dragging && Math.hypot(dx, dy) > DRAG_THR) {
+            const screenDx = e.clientX - startPx;
+            const screenDy = e.clientY - startPy;
+            if (!dragging && Math.hypot(screenDx, screenDy) > DRAG_THR) {
                 dragging = true; tapOk = false;
             }
-            if (dragging) {
-                g.style.cursor = 'grabbing';
-                // ノードを視覚的に移動（エッジはリリース後に再描画）
-                g.setAttribute('transform', `translate(${dx / scale},${dy / scale})`);
-            }
+            if (!dragging) return;
+
+            g.style.cursor = 'grabbing';
+            const sdx = screenDx / scale;
+            const sdy = screenDy / scale;
+            g.setAttribute('transform', `translate(${sdx},${sdy})`);
+
+            // ヒント検出
+            updateHints(node.id, x + sdx, y + sdy);
         });
 
-        g.addEventListener('pointerup', e => {
+        g.addEventListener('pointerup', async e => {
             if (dragging) {
-                const dx = (e.clientX - startPx) / scale;
-                const dy = (e.clientY - startPy) / scale;
-                const cur = nodeOffsets.get(node.id) || { dx: 0, dy: 0 };
-                nodeOffsets.set(node.id, { dx: cur.dx + dx, dy: cur.dy + dy });
-                g.removeAttribute('transform');
+                const sdx = (e.clientX - startPx) / scale;
+                const sdy = (e.clientY - startPy) / scale;
                 dragging = false;
-                if (lastData) redraw(lastData);
+                g.style.cursor = 'grab';
+                g.removeAttribute('transform');
+                clearHints();
+
+                if (activeHint) {
+                    // ノード接続（reparent）
+                    const newParentId = activeHint.type === 'child'
+                        ? activeHint.targetId
+                        : activeHint.parentId ?? null;
+                    await reparentNode(node.id, newParentId);
+                } else {
+                    // 位置保存
+                    const cur = nodeOffsets.get(node.id) || { dx: 0, dy: 0 };
+                    nodeOffsets.set(node.id, { dx: cur.dx + sdx, dy: cur.dy + sdy });
+                    SS.saveOff();
+                    if (lastData) redraw(lastData);
+                }
                 return;
             }
             if (!tapOk) return;
-            // タップ処理
+            // タップ
             if (moveMode) {
-                if (isQuest && !isDone && node.id !== moveMode.taskId) {
+                if (isQuest && !isDone && node.id !== moveMode.taskId)
                     doReparent(moveMode.taskId, node.id);
-                }
                 return;
             }
             showDetail(node);
@@ -331,12 +369,13 @@
         g.addEventListener('pointercancel', () => {
             dragging = false;
             g.removeAttribute('transform');
+            clearHints();
         });
 
         parent.appendChild(g);
     }
 
-    // ─── エッジ（横向きベジェ）───────────────────
+    // ─── エッジ ───────────────────────────────────
     function drawEdge(parent, px, py, cx, cy, pNode, cNode) {
         const R1 = pNode.task_type === 'mission' ? QUEST_R : TASK_R;
         const R2 = cNode.task_type === 'mission' ? QUEST_R : TASK_R;
@@ -350,6 +389,108 @@
             'pointer-events': 'none',
         });
         parent.appendChild(path);
+    }
+
+    // ─── D&D ヒント ──────────────────────────────
+    function updateHints(draggedId, cx, cy) {
+        if (!hintGroup) return;
+        hintGroup.innerHTML = '';
+        activeHint = null;
+
+        // 最近接ノード検出
+        let nearest = null, nearestDist = DETECT_R;
+        layoutMapRef?.forEach((item, id) => {
+            if (id === draggedId) return;
+            const d = Math.hypot(cx - item.x, cy - item.y);
+            if (d < nearestDist) { nearestDist = d; nearest = item; }
+        });
+        if (!nearest) return;
+
+        const { node: tgt, x: tx, y: ty, parentId: tgtParentId } = nearest;
+
+        // ヒント位置：右＝子、下＝兄弟
+        const childHX  = tx + H_GAP * 0.48;
+        const childHY  = ty;
+        const sibHX    = tx;
+        const sibHY    = ty + V_GAP * 0.58;
+
+        const toChild  = Math.hypot(cx - childHX, cy - childHY);
+        const toSib    = Math.hypot(cx - sibHX,   cy - sibHY);
+        const childAct = toChild < ACTIVATE;
+        const sibAct   = toSib   < ACTIVATE;
+
+        // プレビューライン
+        const prev = svgEl_('line', {
+            x1: tx, y1: ty, x2: cx, y2: cy,
+            stroke: C.hintLine, 'stroke-width': 1.5,
+            'stroke-dasharray': '5,4', 'pointer-events': 'none',
+        });
+        hintGroup.appendChild(prev);
+
+        // ＋サークル
+        drawPlusHint(hintGroup, childHX, childHY, childAct, '子へ');
+        drawPlusHint(hintGroup, sibHX,   sibHY,   sibAct,   '並べる');
+
+        // アクティブヒント確定
+        if (childAct && (!sibAct || toChild <= toSib)) {
+            activeHint = { type: 'child', targetId: tgt.id };
+        } else if (sibAct) {
+            activeHint = { type: 'sibling', targetId: tgt.id, parentId: tgtParentId };
+        }
+    }
+
+    function drawPlusHint(parent, x, y, active, label) {
+        const r    = active ? 14 : 11;
+        const fill = active ? C.hint : 'rgba(76,91,212,0.45)';
+        const filt = active ? 'url(#gh)' : '';
+
+        const c = svgEl_('circle', {
+            cx: x, cy: y, r, fill,
+            stroke: active ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.15)',
+            'stroke-width': active ? 2 : 1,
+            ...(filt ? { filter: filt } : {}),
+            'pointer-events': 'none',
+        });
+        const t = svgEl_('text', {
+            x, y: y + 1,
+            'text-anchor': 'middle', 'dominant-baseline': 'middle',
+            'font-size': active ? 17 : 14,
+            fill: 'white', 'font-weight': 700, 'pointer-events': 'none',
+        });
+        t.textContent = '+';
+        parent.appendChild(c); parent.appendChild(t);
+
+        if (active) {
+            const lt = svgEl_('text', {
+                x: x + r + 4, y,
+                'dominant-baseline': 'middle',
+                'font-size': 10, fill: '#8090d0', 'pointer-events': 'none',
+            });
+            lt.textContent = label;
+            parent.appendChild(lt);
+        }
+    }
+
+    function clearHints() {
+        if (hintGroup) hintGroup.innerHTML = '';
+        activeHint = null;
+    }
+
+    // ─── reparentNode（D&D経由）──────────────────
+    async function reparentNode(taskId, newParentId) {
+        nodeOffsets.delete(taskId);
+        SS.saveOff();
+        try {
+            await apiCall('/tasks/action', 'POST', {
+                user_id: userId, action: 'reparent',
+                task_id: taskId, parent_task_id: newParentId ?? null,
+            });
+            await renderTree();
+            loadList();
+        } catch (e) {
+            console.error('接続失敗', e);
+            if (lastData) redraw(lastData);
+        }
     }
 
     // ─── 詳細ボトムシート ──────────────────────────
@@ -385,7 +526,9 @@
         if (node.journal_id)  html += `<button class="tree-journal-btn" data-jid="${escapeHtml(node.journal_id)}">📝 この日のジャーナルを見る</button>`;
         if (!isDone && depth < 4) {
             html += `<div class="tree-add-sub-row">
-                <input type="text" class="form-input tree-add-sub-input" placeholder="サブタスクを追加…" style="flex:1;margin:0;background:#131330;color:#d8e4ff;border-color:#2a2a6a;" />
+                <input type="text" class="form-input tree-add-sub-input"
+                    placeholder="サブタスクを追加…"
+                    style="flex:1;margin:0;background:#131330;color:#d8e4ff;border-color:#2a2a6a;" />
                 <button class="tree-add-sub-btn">＋</button>
             </div>`;
         }
@@ -410,8 +553,7 @@
                         user_id: userId, action: 'add_subtask',
                         task_name: name, parent_task_id: node.id,
                     });
-                    ov.remove();
-                    await renderTree();
+                    ov.remove(); await renderTree();
                 } catch (err) { console.error(err); }
                 finally { btn.disabled = false; }
             };
@@ -423,7 +565,7 @@
         requestAnimationFrame(() => ov.classList.add('open'));
     }
 
-    // ─── 移動モード（リスト長押し → ツリーでタップ）─
+    // ─── 移動モード（リスト長押し） ──────────────
     function showMoveBanner(taskName) {
         document.getElementById('tree-move-banner')?.remove();
         const b = document.createElement('div');
@@ -447,8 +589,7 @@
                 user_id: userId, action: 'reparent',
                 task_id: taskId, parent_task_id: newParentId,
             });
-            await renderTree();
-            loadList();
+            await renderTree(); loadList();
         } catch (e) {
             console.error('移動失敗', e);
             alert('移動に失敗しました');
@@ -463,7 +604,36 @@
     function setupPanZoom(svg) {
         let panning = false, ox = 0, oy = 0;
 
-        // マウス / タッチパッド パン
+        // タッチ伝播をブロック（pull-to-refresh 防止）
+        svg.addEventListener('touchstart', e => {
+            e.stopPropagation();
+        }, { passive: true });
+
+        svg.addEventListener('touchmove', e => {
+            e.preventDefault();    // 全タッチ操作のデフォルト挙動をブロック
+            e.stopPropagation();   // pull-to-refresh ハンドラへの伝播をブロック
+            if (e.touches.length === 2 && lastTouches?.length === 2) {
+                const [t1, t2] = [e.touches[0], e.touches[1]];
+                const nd = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                const od = Math.hypot(
+                    lastTouches[0].clientX - lastTouches[1].clientX,
+                    lastTouches[0].clientY - lastTouches[1].clientY);
+                const ns = Math.min(3, Math.max(0.2, scale * (nd / od)));
+                const r  = svg.getBoundingClientRect();
+                const mx = (t1.clientX + t2.clientX) / 2 - r.left;
+                const my = (t1.clientY + t2.clientY) / 2 - r.top;
+                pan.x = mx - (mx - pan.x) * (ns / scale);
+                pan.y = my - (my - pan.y) * (ns / scale);
+                scale = ns; applyTransform(); SS.savePZ();
+            }
+            lastTouches = Array.from(e.touches);
+        }, { passive: false });
+
+        let lastTouches = null;
+        svg.addEventListener('touchend',   () => { lastTouches = null; });
+        svg.addEventListener('touchcancel',() => { lastTouches = null; });
+
+        // ポインターパン（マウス・タッチ共通）
         svg.addEventListener('pointerdown', e => {
             if (e.target !== svg && e.target !== gEl) return;
             panning = true;
@@ -476,7 +646,9 @@
             pan.x = e.clientX - ox; pan.y = e.clientY - oy;
             applyTransform();
         });
-        svg.addEventListener('pointerup',     () => { panning = false; svg.style.cursor = 'grab'; });
+        svg.addEventListener('pointerup', () => {
+            if (panning) { panning = false; svg.style.cursor = 'grab'; SS.savePZ(); }
+        });
         svg.addEventListener('pointercancel', () => { panning = false; svg.style.cursor = 'grab'; });
 
         // スクロールズーム
@@ -487,30 +659,8 @@
             const ns = Math.min(3, Math.max(0.2, scale * (e.deltaY < 0 ? 1.1 : 0.9)));
             pan.x = mx - (mx - pan.x) * (ns / scale);
             pan.y = my - (my - pan.y) * (ns / scale);
-            scale = ns; applyTransform();
+            scale = ns; applyTransform(); SS.savePZ();
         }, { passive: false });
-
-        // ピンチズーム（タッチ）
-        let lastTouches = null;
-        svg.addEventListener('touchstart', e => { lastTouches = Array.from(e.touches); }, { passive: true });
-        svg.addEventListener('touchmove', e => {
-            if (e.touches.length === 2 && lastTouches?.length === 2) {
-                e.preventDefault();
-                const [t1, t2] = [e.touches[0], e.touches[1]];
-                const nd = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-                const od = Math.hypot(lastTouches[0].clientX - lastTouches[1].clientX,
-                                      lastTouches[0].clientY - lastTouches[1].clientY);
-                const ns = Math.min(3, Math.max(0.2, scale * (nd / od)));
-                const r  = svg.getBoundingClientRect();
-                const mx = (t1.clientX + t2.clientX) / 2 - r.left;
-                const my = (t1.clientY + t2.clientY) / 2 - r.top;
-                pan.x = mx - (mx - pan.x) * (ns / scale);
-                pan.y = my - (my - pan.y) * (ns / scale);
-                scale = ns; applyTransform();
-            }
-            lastTouches = Array.from(e.touches);
-        }, { passive: false });
-        svg.addEventListener('touchend', () => { lastTouches = null; });
     }
 
     // ─── ジャーナル遷移 ────────────────────────────
@@ -531,7 +681,7 @@
     }
 
     // ─── ユーティリティ ───────────────────────────
-    function svgNS(tag)       { return document.createElementNS(NS, tag); }
+    function svgNS(tag)         { return document.createElementNS(NS, tag); }
     function svgEl_(tag, attrs) {
         const el = document.createElementNS(NS, tag);
         Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
@@ -550,6 +700,7 @@
     };
     window.enterMoveMode = (taskId, taskName) => {
         moveMode = { taskId, taskName };
+        window._treeViewActive = true;
         btnTree.classList.add('active'); btnList.classList.remove('active');
         listView.style.display = 'none'; treeView.style.display = '';
         renderTree().then(() => showMoveBanner(taskName));

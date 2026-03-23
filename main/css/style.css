@@ -1705,6 +1705,17 @@ select {
 }
 #tree-detail-overlay .tree-add-sub-btn { background: #4c5bd4; }
 
+/* ─── ツリービュー タッチ操作 / 長押しコピー防止 ─── */
+#treeView {
+    overscroll-behavior: none;
+    touch-action: none;
+}
+#treeContainer, #treeContainer * {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+}
+
 /* ─── ツリービュー 空・ローディング ─── */
 .tree-empty, .tree-loading {
     display: flex; align-items: center; justify-content: center;
