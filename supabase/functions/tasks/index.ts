@@ -37,20 +37,21 @@ async function getTaskList(supabase: Supabase, user_id: string) {
   // 全タスクを取得して子孫数を再帰カウント
   const { data: allUserTasks } = await supabase
     .from('tasks')
-    .select('id, parent_task_id, complete_at')
+    .select('id, parent_task_id, complete_at, priority_level')
     .eq('user_id', user_id);
-  const childrenOf: Record<number, Array<{ id: number; complete_at: number }>> = {};
+  const childrenOf: Record<number, Array<{ id: number; complete_at: number; priority_level: string | null }>> = {};
   for (const t of allUserTasks ?? []) {
     if (t.parent_task_id) {
       if (!childrenOf[t.parent_task_id]) childrenOf[t.parent_task_id] = [];
-      childrenOf[t.parent_task_id].push({ id: t.id, complete_at: t.complete_at });
+      childrenOf[t.parent_task_id].push({ id: t.id, complete_at: t.complete_at, priority_level: t.priority_level });
     }
   }
-  function countAllDescendants(id: number): { total: number; incomplete: number } {
+  function countAllDescendants(id: number): { total: number; incomplete: number; hasUrgent: boolean } {
     const ch = childrenOf[id] ?? [];
     let total = ch.length, incomplete = ch.filter(c => c.complete_at !== 1).length;
-    for (const c of ch) { const sub = countAllDescendants(c.id); total += sub.total; incomplete += sub.incomplete; }
-    return { total, incomplete };
+    let hasUrgent = ch.some(c => c.priority_level === 'critical' && c.complete_at !== 1);
+    for (const c of ch) { const sub = countAllDescendants(c.id); total += sub.total; incomplete += sub.incomplete; if (sub.hasUrgent) hasUrgent = true; }
+    return { total, incomplete, hasUrgent };
   }
 
   const result: Record<string, unknown[]> = {
@@ -62,7 +63,7 @@ async function getTaskList(supabase: Supabase, user_id: string) {
 
   for (const task of tasks ?? []) {
     const desc = countAllDescendants(task.id);
-    const t = { ...task, subtask_count: desc.total, incomplete_subtask_count: desc.incomplete };
+    const t = { ...task, subtask_count: desc.total, incomplete_subtask_count: desc.incomplete, has_urgent_descendant: desc.hasUrgent };
     if (t.complete_at === 1) {
       result.completed.push(t);
     } else {

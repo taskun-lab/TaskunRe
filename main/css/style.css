@@ -52,6 +52,7 @@
 [data-theme="dark"] .tab-nav-item { color: #8e8e93; }
 [data-theme="dark"] .card { background: #2c2c2e; border-bottom-color: rgba(255,255,255,0.06); }
 [data-theme="dark"] .card .sl { background: #2c2c2e; }
+[data-theme="dark"] .card.priority-critical { background: radial-gradient(circle at center, #2c2c2e 0%, #3a1515 100%); border-left-color: #ff4444; box-shadow: inset 0 0 30px rgba(255,51,51,0.08), 0 0 12px rgba(255,51,51,0.25); }
 [data-theme="dark"] .card.priority-critical .sl { background: radial-gradient(circle at center, #2c2c2e 0%, #3a1515 100%); }
 [data-theme="dark"] .card.priority-high .sl { background: radial-gradient(circle at center, #2c2c2e 0%, #3a3015 100%); }
 [data-theme="dark"] .card.priority-quest { border-left-color: var(--energy-orange); }
@@ -1808,12 +1809,6 @@ select {
 /* コンテナのパディングをリセット */
 .card-inline-subtasks { padding: 0 !important; }
 
-/* サブタスクカード: 幅を2/3に（親カードより小さく見せて階層を表現） */
-.inline-leaf-card {
-    width: 66.67%;
-    margin-left: auto;
-}
-
 /* 習慣記録日付ピッカー */
 .habit-date-row {
     display: flex; align-items: center; gap: 8px;
@@ -1896,3 +1891,34 @@ select {
     border-radius: 6px; transition: background 0.15s;
 }
 .edge-menu-btn:hover { background: rgba(100,120,255,0.18); }
+/* ─── 詳細モーダル（3モード: 表示/編集/通知）─── */
+.detail-task-title { font-size: 17px; font-weight: 700; color: var(--text-primary); padding: 12px 0 8px; line-height: 1.4; word-break: break-word; }
+.detail-view-type-row { margin-bottom: 10px; }
+.task-modal-priority { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.task-modal-priority.priority-critical-label { background: linear-gradient(135deg, #ff3333, #cc0000); color: white; }
+.task-modal-priority.priority-mission-label { background: rgba(255,159,67,0.18); color: var(--energy-orange); border: 1px solid rgba(255,159,67,0.35); }
+.task-modal-priority.priority-normal-label { background: rgba(38,222,129,0.15); color: #26de81; border: 1px solid rgba(38,222,129,0.3); }
+.detail-view-reason { background: var(--bg-main); border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+.detail-reason-label { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.detail-reason-body { font-size: 14px; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.detail-edit-field { margin-bottom: 14px; }
+.detail-edit-label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.detail-edit-input { width: 100%; padding: 10px 14px; border: 2px solid var(--border, rgba(13,27,42,0.1)); border-radius: 12px; font-size: 15px; font-weight: 600; background: var(--bg-main); color: var(--text-primary); box-sizing: border-box; transition: border-color 0.2s; }
+.detail-edit-input:focus { outline: none; border-color: var(--energy-orange); }
+.detail-edit-textarea { width: 100%; padding: 10px 14px; border: 2px solid var(--border, rgba(13,27,42,0.1)); border-radius: 12px; font-size: 14px; background: var(--bg-main); color: var(--text-primary); box-sizing: border-box; resize: vertical; transition: border-color 0.2s; font-family: inherit; line-height: 1.5; }
+.detail-edit-textarea:focus { outline: none; border-color: var(--energy-orange); }
+.detail-type-switcher { display: flex; gap: 6px; flex-wrap: wrap; }
+.detail-type-btn { flex: 1; padding: 8px 10px; border: 2px solid var(--border, rgba(13,27,42,0.1)); border-radius: 10px; background: var(--bg-main); color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.detail-type-btn:hover { border-color: var(--energy-orange); color: var(--energy-orange); }
+.detail-type-btn.active[data-type='default'] { background: rgba(38,222,129,0.15); border-color: #26de81; color: #26de81; }
+.detail-type-btn.active[data-type='mission'] { background: rgba(255,159,67,0.15); border-color: var(--energy-orange); color: var(--energy-orange); }
+.detail-type-btn.active[data-type='critical'] { background: rgba(255,51,51,0.12); border-color: #ff3333; color: #ff3333; }
+[data-theme='dark'] .detail-edit-input, [data-theme='dark'] .detail-edit-textarea { border-color: rgba(255,255,255,0.12); }
+[data-theme='dark'] .detail-type-btn { border-color: rgba(255,255,255,0.12); }
+[data-theme='dark'] .detail-view-reason { background: rgba(255,255,255,0.05); }
+/* ─── クエストカード: 今日中バッジ ─── */
+.quest-urgent-badge { display: inline-flex; align-items: center; background: linear-gradient(135deg, #ff3333, #cc0000); color: white; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; box-shadow: 0 2px 6px rgba(255,51,51,0.4); }
+/* ─── 末端カード: 今日中スタイル ─── */
+.inline-leaf-card.priority-critical > .sl.inline-leaf-sl { background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%); border-left: 3px solid #ff3333; }
+[data-theme='dark'] .inline-leaf-card.priority-critical > .sl.inline-leaf-sl { background: linear-gradient(135deg, #2c2c2e 0%, #3a1515 100%); border-left: 3px solid #ff4444; }
+

@@ -153,6 +153,13 @@ function createTaskCard(t, isCompleted, priority) {
     titleEl.textContent = t.task_name || t.title || "(無題)";
     titleArea.appendChild(titleEl);
 
+    // 今日中サブタスクバッジ（クエスト用）
+    if (!isCompleted && t.task_type === 'mission' && t.has_urgent_descendant) {
+        const urgentBadge = document.createElement("span");
+        urgentBadge.className = "quest-urgent-badge";
+        urgentBadge.textContent = "⚡今日中";
+        titleArea.appendChild(urgentBadge);
+    }
     // サブタスク件数バッジ（クエスト用）: 「残N/M」or「M」
     if (!isCompleted && t.task_type === 'mission' && t.subtask_count > 0) {
         const badge = document.createElement("span");
@@ -672,7 +679,7 @@ function buildLeafCard(item, rootId, container) {
     const { task, leftBadge, rightBadge } = item;
 
     const wrap = document.createElement('div');
-    wrap.className = 'card inline-leaf-card';
+    wrap.className = 'card inline-leaf-card' + (task.priority_level === 'critical' ? ' priority-critical' : '');
 
     // ── アクションレール ──
     const rail = document.createElement('div');

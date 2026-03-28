@@ -299,23 +299,58 @@
         <div id="detailBackdrop" class="modal-backdrop"></div>
         <div class="modal-panel">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;" id="modalTitle">タスク詳細</div>
+                <div style="font-family:'Noto Serif JP',serif;font-weight:700;font-size:18px;" id="modalTitle">📋 タスク詳細</div>
                 <button id="detailCloseBtn" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)">&times;</button>
             </div>
-            <div id="detailTaskTitle" style="font-size:14px;color:var(--text-secondary);margin:8px 0 16px;padding:10px;background:var(--bg-main);border-radius:10px;"></div>
-            <div id="scoreGroup">
-                <div class="slider-group"><div class="slider-label-row"><span>🎯 優先度</span><span class="value" id="valPriority"></span></div><input id="inputPriority" type="range" min="0" max="10" step="1" style="width:100%" /></div>
-                <div class="slider-group"><div class="slider-label-row"><span>🔮 ビジョン関連度</span><span class="value" id="valVision"></span></div><input id="inputVision" type="range" min="0" max="10" step="1" style="width:100%" /></div>
-                <div class="slider-group"><div class="slider-label-row"><span>✨ わくわく度</span><span class="value" id="valExcite"></span></div><input id="inputExcite" type="range" min="0" max="10" step="1" style="width:100%" /></div>
-                <div class="slider-group"><div class="slider-label-row"><span>💪 成長度</span><span class="value" id="valGrowth"></span></div><input id="inputGrowth" type="range" min="0" max="10" step="1" style="width:100%" /></div>
+
+            <!-- タスク名 -->
+            <div id="detailTaskTitle" class="detail-task-title"></div>
+
+            <!-- 表示モード -->
+            <div id="detailViewGroup">
+                <div id="detailViewType" class="detail-view-type-row"></div>
+                <div id="detailViewReason" class="detail-view-reason" style="display:none;"></div>
+                <div class="modal-footer">
+                    <button id="detailCancelBtn" class="btn-secondary">閉じる</button>
+                    <button id="detailEditModeBtn" class="btn-primary-solid">✏️ 編集</button>
+                </div>
             </div>
-            <div id="remindGroup" class="slider-group">
-                <div class="slider-label-row"><span>🔔 リマインド日時</span><span class="value" id="valRemindAt"></span></div>
-                <input id="inputRemindAt" type="datetime-local" style="width:100%;padding:12px;border:2px solid rgba(13,27,42,0.1);border-radius:12px;font-size:14px;" />
+
+            <!-- 編集モード -->
+            <div id="detailEditGroup" style="display:none;">
+                <div class="detail-edit-field">
+                    <label class="detail-edit-label">タスク名</label>
+                    <input id="detailEditName" type="text" class="detail-edit-input" placeholder="タスク名を入力" />
+                </div>
+                <div class="detail-edit-field">
+                    <label class="detail-edit-label">タイプ</label>
+                    <div id="detailTypeSwitcher" class="detail-type-switcher">
+                        <button class="detail-type-btn" data-type="default">✅ ノーマル</button>
+                        <button class="detail-type-btn" data-type="mission">🎯 クエスト</button>
+                        <button class="detail-type-btn" data-type="critical">⚡ 今日中</button>
+                    </div>
+                </div>
+                <div id="detailEditReasonGroup" class="detail-edit-field" style="display:none;">
+                    <label class="detail-edit-label">💡 なぜやるか</label>
+                    <textarea id="detailEditReason" class="detail-edit-textarea" rows="3" placeholder="このタスクをやる理由を入力（任意）"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button id="detailEditCancelBtn" class="btn-secondary">キャンセル</button>
+                    <button id="detailSaveBtn" class="btn-primary-solid">💪 保存</button>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button id="detailCancelBtn" class="btn-secondary">キャンセル</button>
-                <button id="detailSaveBtn" class="btn-primary-solid">💪 保存</button>
+
+            <!-- 通知モード -->
+            <div id="remindGroup" style="display:none;">
+                <div class="detail-edit-field">
+                    <label class="detail-edit-label">🔔 リマインド日時</label>
+                    <div class="slider-label-row"><span class="value" id="valRemindAt"></span></div>
+                    <input id="inputRemindAt" type="datetime-local" style="width:100%;padding:12px;border:2px solid rgba(13,27,42,0.1);border-radius:12px;font-size:14px;" />
+                </div>
+                <div class="modal-footer">
+                    <button id="remindCancelBtn" class="btn-secondary">キャンセル</button>
+                    <button id="remindSaveBtn" class="btn-primary-solid">💾 保存</button>
+                </div>
             </div>
         </div>
     </div>

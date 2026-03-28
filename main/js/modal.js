@@ -2,6 +2,9 @@
    ムキムキタスくん - モーダル管理
    ============================================= */
 
+function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 let currentDetailTask = null;
 let currentPriorityTask = null;
 let modalMode = "detail";
@@ -245,51 +248,105 @@ function bindModalUI() {
     document.getElementById('detailCloseBtn').onclick = close;
     document.getElementById('detailCancelBtn').onclick = close;
 
-    ['Priority', 'Vision', 'Excite', 'Growth'].forEach(name => {
-        const input = document.getElementById(`input${name}`);
-        const val = document.getElementById(`val${name}`);
-        input.addEventListener('input', () => val.textContent = input.value);
+    // 表示→編集モードへ切り替え
+    document.getElementById('detailEditModeBtn').onclick = () => {
+        if (!currentDetailTask) return;
+        const t = currentDetailTask;
+        document.getElementById('detailViewGroup').style.display = 'none';
+        document.getElementById('detailEditGroup').style.display = '';
+        document.getElementById('detailEditName').value = t.task_name || t.title || '';
+        document.getElementById('detailEditReason').value = t.reason || '';
+        const cur = t.priority_level === 'critical' ? 'critical' : (t.task_type === 'mission' ? 'mission' : 'default');
+        document.querySelectorAll('.detail-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === cur));
+        document.getElementById('detailEditReasonGroup').style.display = cur === 'mission' ? '' : 'none';
+    };
+
+    // タイプ切り替え
+    document.getElementById('detailTypeSwitcher').addEventListener('click', e => {
+        const btn = e.target.closest('.detail-type-btn');
+        if (!btn) return;
+        document.querySelectorAll('.detail-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('detailEditReasonGroup').style.display = btn.dataset.type === 'mission' ? '' : 'none';
     });
+
+    // 編集キャンセル（表示モードへ戻る）
+    document.getElementById('detailEditCancelBtn').onclick = () => {
+        document.getElementById('detailEditGroup').style.display = 'none';
+        document.getElementById('detailViewGroup').style.display = '';
+    };
+
+    // 保存
+    document.getElementById('detailSaveBtn').onclick = async () => {
+        if (!currentDetailTask) return;
+        const t = currentDetailTask;
+        const newName = document.getElementById('detailEditName').value.trim();
+        const selectedType = document.querySelector('.detail-type-btn.active')?.dataset.type || 'default';
+        const newReason = document.getElementById('detailEditReason').value.trim() || null;
+        const promises = [];
+        if (newName && newName !== (t.task_name || t.title || ''))
+            promises.push(action('rename', t.id, { task_name: newName }));
+        const newPL = selectedType === 'critical' ? 'critical' : 'normal';
+        const newTT = selectedType === 'critical' ? (t.task_type || 'default') : selectedType;
+        if (newPL !== (t.priority_level || 'normal'))
+            promises.push(action('set_priority', t.id, { priority: t.priority || 0, priority_level: newPL }));
+        if (newTT !== (t.task_type || 'default') || newReason !== (t.reason || null))
+            promises.push(action('update_type', t.id, { task_type: newTT, reason: newReason }));
+        if (promises.length > 0) await Promise.all(promises);
+        close();
+    };
+
+    // 通知保存
+    document.getElementById('remindSaveBtn').onclick = async () => {
+        if (!currentDetailTask) return;
+        const inputVal = document.getElementById('inputRemindAt').value;
+        await action("remind_custom", currentDetailTask.id, {
+            remind_at: inputVal ? new Date(inputVal).toISOString() : null,
+            kind: inputVal ? "custom_datetime" : "clear"
+        });
+        close();
+    };
+    document.getElementById('remindCancelBtn').onclick = close;
 
     document.getElementById('inputRemindAt').addEventListener('change', e => {
         document.getElementById('valRemindAt').textContent = e.target.value
             ? formatRemindLabel(new Date(e.target.value).toISOString())
             : '';
     });
-
-    document.getElementById('detailSaveBtn').onclick = async () => {
-        if (!currentDetailTask) return;
-        if (modalMode === "detail") {
-            await action("update_detail", currentDetailTask.id, {
-                priority: Number(document.getElementById('inputPriority').value),
-                vision_score: Number(document.getElementById('inputVision').value),
-                excite_score: Number(document.getElementById('inputExcite').value),
-                growth_score: Number(document.getElementById('inputGrowth').value),
-            });
-        } else {
-            const inputVal = document.getElementById('inputRemindAt').value;
-            await action("remind_custom", currentDetailTask.id, {
-                remind_at: inputVal ? new Date(inputVal).toISOString() : null,
-                kind: inputVal ? "custom_datetime" : "clear"
-            });
-        }
-        close();
-    };
 }
 
 function openDetail(t) {
     modalMode = "detail";
     currentDetailTask = t;
-    document.getElementById('modalTitle').textContent = "💪 タスク詳細";
+    document.getElementById('detailViewGroup').style.display = '';
+    document.getElementById('detailEditGroup').style.display = 'none';
+    document.getElementById('remindGroup').style.display = 'none';
+    document.getElementById('modalTitle').textContent = "📋 タスク詳細";
     document.getElementById('detailTaskTitle').textContent = t.task_name || t.title || "(無題)";
-    document.getElementById('scoreGroup').style.display = "block";
-    document.getElementById('remindGroup').style.display = "none";
 
-    ['Priority', 'Vision', 'Excite', 'Growth'].forEach(name => {
-        const val = t[name.toLowerCase() + (name === 'Priority' ? '' : '_score')] ?? 0;
-        document.getElementById(`input${name}`).value = val;
-        document.getElementById(`val${name}`).textContent = val;
-    });
+    // タイプバッジ
+    const typeDiv = document.getElementById('detailViewType');
+    if (typeDiv) {
+        const pl = t.priority_level, tt = t.task_type;
+        if (pl === 'critical')
+            typeDiv.innerHTML = '<span class="task-modal-priority priority-critical-label">⚡ 今日中</span>';
+        else if (tt === 'mission')
+            typeDiv.innerHTML = '<span class="task-modal-priority priority-mission-label">🎯 クエスト</span>';
+        else
+            typeDiv.innerHTML = '<span class="task-modal-priority priority-normal-label">✅ ノーマル</span>';
+    }
+
+    // なぜやるか
+    const reasonDiv = document.getElementById('detailViewReason');
+    if (reasonDiv) {
+        if (t.reason) {
+            reasonDiv.style.display = '';
+            reasonDiv.innerHTML = '<div class="detail-reason-label">💡 なぜやるか</div>' +
+                '<div class="detail-reason-body">' + escapeHtml(t.reason) + '</div>';
+        } else {
+            reasonDiv.style.display = 'none';
+        }
+    }
     document.getElementById('detailModal').classList.add("visible");
 }
 
@@ -298,8 +355,9 @@ function openRemind(t) {
     currentDetailTask = t;
     document.getElementById('modalTitle').textContent = "🔔 通知設定";
     document.getElementById('detailTaskTitle').textContent = t.task_name || t.title || "(無題)";
-    document.getElementById('scoreGroup').style.display = "none";
-    document.getElementById('remindGroup').style.display = "block";
+    document.getElementById('detailViewGroup').style.display = 'none';
+    document.getElementById('detailEditGroup').style.display = 'none';
+    document.getElementById('remindGroup').style.display = '';
 
     const input = document.getElementById('inputRemindAt');
     const val = document.getElementById('valRemindAt');
