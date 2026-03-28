@@ -612,8 +612,41 @@ async function renderBubbleUpSubtasks(rootId, container, silent = false) {
         const items = [];
         await collectLeafItems(rootId, items, 0);
         container.innerHTML = '';
+
+        // ヘッダー（クエスト詳細・編集へのアクセス）
+        const header = document.createElement('div');
+        header.className = 'bubble-up-header';
+        const detailBtn = document.createElement('button');
+        detailBtn.className = 'bubble-detail-btn';
+        detailBtn.textContent = '詳細・編集';
+        detailBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrap = container.closest('.card');
+            if (wrap && wrap.__taskData) openDetail(wrap.__taskData);
+        });
+        header.appendChild(detailBtn);
+        container.appendChild(header);
+
         if (items.length === 0) {
-            container.innerHTML = '<div class="list-subtask-empty">全タスク完了！🎉</div>';
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'list-subtask-empty';
+            emptyDiv.textContent = '全タスク完了！🎉';
+            container.appendChild(emptyDiv);
+            const completeBtn = document.createElement('button');
+            completeBtn.className = 'bubble-quest-complete-btn';
+            completeBtn.textContent = 'クエスト達成！';
+            completeBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                completeBtn.disabled = true;
+                try {
+                    await apiCall('/tasks/action', 'POST', { user_id: userId, action: 'complete', task_id: rootId });
+                    loadList();
+                } catch (err) {
+                    console.error(err);
+                    completeBtn.disabled = false;
+                }
+            });
+            container.appendChild(completeBtn);
             return;
         }
         items.forEach(item => container.appendChild(buildLeafCard(item, rootId, container)));
@@ -710,6 +743,7 @@ function buildLeafCard(item, rootId, container) {
 
     // ── ボタン（スワイプ開いた後にタップして実行できる）──
     actLeft.appendChild(mkBtn('完了', () => onAction('complete'), 'btn-complete'));
+    actRight.appendChild(mkBtn('詳細', () => openDetail(task), 'btn-detail'));
     actRight.appendChild(mkBtn('削除', () => onAction('delete'), 'btn-delete'));
 
     // ── SwipeableRow（従来と同じスワイプライブラリ）──

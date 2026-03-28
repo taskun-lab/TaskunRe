@@ -1799,6 +1799,31 @@ select {
 /* コンテナのパディングをリセット */
 .card-inline-subtasks { padding: 0 !important; }
 
+/* バブルアップ ヘッダー */
+.bubble-up-header {
+    display: flex; justify-content: flex-end; align-items: center;
+    padding: 4px 12px 2px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+[data-theme="dark"] .bubble-up-header { border-bottom-color: rgba(255,255,255,0.06); }
+.bubble-detail-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 11px; color: var(--text-muted); padding: 2px 6px;
+    border-radius: 4px; transition: background 0.15s, color 0.15s;
+}
+.bubble-detail-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-primary); }
+
+/* クエスト達成ボタン */
+.bubble-quest-complete-btn {
+    display: block; width: calc(100% - 24px); margin: 8px 12px;
+    padding: 8px; border: none; border-radius: 8px; cursor: pointer;
+    background: var(--energy-orange); color: #fff;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.03em;
+    transition: opacity 0.15s;
+}
+.bubble-quest-complete-btn:hover { opacity: 0.85; }
+.bubble-quest-complete-btn:disabled { opacity: 0.4; cursor: default; }
+
 /* ── サブタスク展開ボタン ── */
 .list-subtask-expand {
     background: none; border: none; color: var(--text-muted);
