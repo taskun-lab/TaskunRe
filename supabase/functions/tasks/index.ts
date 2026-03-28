@@ -37,14 +37,18 @@ async function getTaskList(supabase: Supabase, user_id: string) {
   // サブタスク件数を一括取得
   const taskIds = (tasks ?? []).map((t) => t.id);
   const subtaskCountMap: Record<number, number> = {};
+  const incompleteCountMap: Record<number, number> = {};
   if (taskIds.length > 0) {
     const { data: subtaskRows } = await supabase
       .from('tasks')
-      .select('parent_task_id')
+      .select('parent_task_id, complete_at')
       .in('parent_task_id', taskIds);
     for (const row of subtaskRows ?? []) {
       if (row.parent_task_id) {
         subtaskCountMap[row.parent_task_id] = (subtaskCountMap[row.parent_task_id] ?? 0) + 1;
+        if (row.complete_at !== 1) {
+          incompleteCountMap[row.parent_task_id] = (incompleteCountMap[row.parent_task_id] ?? 0) + 1;
+        }
       }
     }
   }
@@ -57,7 +61,7 @@ async function getTaskList(supabase: Supabase, user_id: string) {
   };
 
   for (const task of tasks ?? []) {
-    const t = { ...task, subtask_count: subtaskCountMap[task.id] ?? 0 };
+    const t = { ...task, subtask_count: subtaskCountMap[task.id] ?? 0, incomplete_subtask_count: incompleteCountMap[task.id] ?? 0 };
     if (t.complete_at === 1) {
       result.completed.push(t);
     } else {

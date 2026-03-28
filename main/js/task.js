@@ -153,11 +153,12 @@ function createTaskCard(t, isCompleted, priority) {
     titleEl.textContent = t.task_name || t.title || "(無題)";
     titleArea.appendChild(titleEl);
 
-    // サブタスク件数バッジ（クエスト用）
+    // サブタスク件数バッジ（クエスト用）: 「残N/M」or「M」
     if (!isCompleted && t.task_type === 'mission' && t.subtask_count > 0) {
         const badge = document.createElement("span");
         badge.className = "subtask-count-badge";
-        badge.textContent = `${t.subtask_count}`;
+        const rem = t.incomplete_subtask_count ?? t.subtask_count;
+        badge.textContent = rem < t.subtask_count ? `残${rem}/${t.subtask_count}` : `${t.subtask_count}`;
         titleArea.appendChild(badge);
     }
 
@@ -353,6 +354,7 @@ function createCardEditPanel(t) {
  * カード編集パネルのトグル
  */
 function toggleCardEditPanel(wrap) {
+    if (wrap.classList.contains('completed')) return;   // 完了タスクは開かない
     const t = wrap.__taskData;
     const isOpen = wrap.classList.contains('expanded') || wrap.classList.contains('bubble-open');
 
@@ -612,20 +614,6 @@ async function renderBubbleUpSubtasks(rootId, container, silent = false) {
         const items = [];
         await collectLeafItems(rootId, items, 0);
         container.innerHTML = '';
-
-        // ヘッダー（クエスト詳細・編集へのアクセス）
-        const header = document.createElement('div');
-        header.className = 'bubble-up-header';
-        const detailBtn = document.createElement('button');
-        detailBtn.className = 'bubble-detail-btn';
-        detailBtn.textContent = '詳細・編集';
-        detailBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const wrap = container.closest('.card');
-            if (wrap && wrap.__taskData) openDetail(wrap.__taskData);
-        });
-        header.appendChild(detailBtn);
-        container.appendChild(header);
 
         if (items.length === 0) {
             const emptyDiv = document.createElement('div');

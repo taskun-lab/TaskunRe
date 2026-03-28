@@ -13,10 +13,10 @@
     if (!btnList || !btnTree) return;
 
     // ─── 定数 ────────────────────────────────────
-    const QUEST_R   = 22;
-    const TASK_R    = 14;
-    const V_GAP     = 80;
-    const H_GAP     = 190;
+    const QUEST_R   = 55;
+    const TASK_R    = 35;
+    const V_GAP     = 130;
+    const H_GAP     = 300;
     const MAX_CHARS = 13;
     const NS        = 'http://www.w3.org/2000/svg';
     const DRAG_THR  = 6;
@@ -207,7 +207,7 @@
 
         if (isQuest || isDone) {
             const ic = svgEl_('text', { x, y: y + 1, 'text-anchor': 'middle',
-                'dominant-baseline': 'middle', 'font-size': isQuest ? 13 : 9,
+                'dominant-baseline': 'middle', 'font-size': isQuest ? 30 : 22,
                 fill: 'white', 'pointer-events': 'none' });
             ic.textContent = isDone ? '✓' : '🎯';
             g.appendChild(ic);
@@ -228,23 +228,7 @@
             g.appendChild(de);
         }
 
-        if (hasKids) {
-            const bx = x + R - 4, by = y - R + 4, isCol = collapsed.has(node.id);
-            const bc = svgEl_('circle', { cx: bx, cy: by, r: 8,
-                fill: C.badge, stroke: 'rgba(255,255,255,0.3)', 'stroke-width': 1 });
-            const bt = svgEl_('text', { x: bx, y: by + 1, 'text-anchor': 'middle',
-                'dominant-baseline': 'middle', 'font-size': 11, fill: 'white',
-                'font-weight': 700, 'pointer-events': 'none' });
-            bt.textContent = isCol ? '+' : '−';
-            bc.style.cursor = 'pointer';
-            bc.addEventListener('pointerdown', e => e.stopPropagation());
-            bc.addEventListener('click', e => {
-                e.stopPropagation();
-                isCol ? collapsed.delete(node.id) : collapsed.add(node.id);
-                if (lastData) redraw(lastData);
-            });
-            g.appendChild(bc); g.appendChild(bt);
-        }
+
 
         // D&D
         let tapOk = true, dragging = false, pressed = false, startPx = 0, startPy = 0;
@@ -336,8 +320,7 @@
             'background:#0d0d2b;border:1px solid rgba(100,120,255,0.3);border-radius:10px;' +
             'padding:4px;box-shadow:0 4px 24px rgba(0,0,0,0.5);min-width:140px;';
         menu.innerHTML = `
-            <button class="edge-menu-btn" data-act="disconnect">🔗 接続解除</button>
-            <button class="edge-menu-btn" data-act="collapse">🙈 子を隠す</button>`;
+            <button class="edge-menu-btn" data-act="disconnect">🔗 接続解除</button>`;
 
         menu.querySelectorAll('.edge-menu-btn').forEach(btn => {
             btn.addEventListener('click', async e => {

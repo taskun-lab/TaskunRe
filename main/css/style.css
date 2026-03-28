@@ -444,6 +444,15 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
     flex-shrink: 0; margin-left: 4px;
 }
 
+/* バブルアップ展開中のクエストカード: 左ボーダーと背景で開いていることを示す */
+.card.bubble-open > .sl {
+    border-left: 3px solid var(--energy-orange);
+    background: rgba(255,159,67,0.04);
+}
+[data-theme="dark"] .card.bubble-open > .sl {
+    background: rgba(255,159,67,0.07);
+}
+
 /* === サブタスクセクション（カード展開内）=== */
 .card-subtask-section {
     margin-bottom: 8px;
@@ -1757,11 +1766,11 @@ select {
 }
 [data-theme="dark"] .inline-leaf-card { border-bottom-color: rgba(255,255,255,0.06); }
 
-.inline-leaf-sl {
-    display: flex; align-items: center; gap: 6px;
-    padding: 5px 12px; min-height: 44px;
-    background: var(--bg-card); position: relative; z-index: 1;
-    will-change: transform;
+/* 2クラスセレクタで .sl の min-height:68px を確実に上書き */
+.sl.inline-leaf-sl {
+    min-height: 46px;
+    padding: 4px 12px;
+    gap: 6px;
 }
 .inline-task-name { font-size: 13px; line-height: 1.3; }
 .inline-leaf-rail {
