@@ -1764,7 +1764,9 @@ select {
     position: relative; overflow: hidden; touch-action: pan-y;
     border-bottom: 1px solid rgba(0,0,0,0.05);
     background: var(--bg-card);
+    min-height: 0; /* .card の min-height:68px を無効化 */
 }
+.inline-leaf-card .actions-rail { height: 46px; } /* rail高さも末端カードに合わせる */
 [data-theme="dark"] .inline-leaf-card { border-bottom-color: rgba(255,255,255,0.06); }
 
 /* 2クラスセレクタで .sl の min-height:68px を確実に上書き */
