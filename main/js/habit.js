@@ -5,6 +5,7 @@
 let todayHabits = {};
 let weekHabitsData = {};
 let currentHabits = []; // msc.jsから参照するためグローバルに保持
+let recordingDate = ''; // 記録対象日（デフォルトは今日）
 
 /**
  * 習慣リストをレンダリング（引数の habits 配列を使用）
@@ -68,9 +69,17 @@ function renderHabitList(habits) {
 /**
  * 習慣データ読み込み
  */
-async function loadHabits() {
+async function loadHabits(date) {
+    if (date) recordingDate = date;
+    if (!recordingDate) {
+        const t = new Date();
+        recordingDate = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    }
+    // 日付ピッカーを同期
+    const picker = document.getElementById('habitRecordDate');
+    if (picker && picker.value !== recordingDate) picker.value = recordingDate;
     try {
-        const data = await apiCall(`/habits?user_id=${encodeURIComponent(userId)}`);
+        const data = await apiCall(`/habits?user_id=${encodeURIComponent(userId)}&date=${encodeURIComponent(recordingDate)}`);
         const habits = data.habits || [];
         currentHabits = habits; // グローバルに保持
 
@@ -186,12 +195,15 @@ function renderHabitAnalysis(data) {
  */
 async function saveHabits() {
     try {
-        const today = new Date();
-        const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        await apiCall('/habits/save', 'POST', { user_id: userId, date: localDate, habits: todayHabits });
+        if (!recordingDate) {
+            const t = new Date();
+            recordingDate = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+        }
+        await apiCall('/habits/save', 'POST', { user_id: userId, date: recordingDate, habits: todayHabits });
         document.getElementById('dailyTaskCard').classList.remove('expanded');
         await loadHabits();
-        alert('💪 記録を保存しました！');
+        const isToday = recordingDate === (() => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; })();
+        alert(isToday ? '💪 記録を保存しました！' : `📅 ${recordingDate} の記録を保存しました！`);
     } catch (e) {
         alert('保存に失敗しました');
     }

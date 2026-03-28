@@ -1808,6 +1808,26 @@ select {
 /* コンテナのパディングをリセット */
 .card-inline-subtasks { padding: 0 !important; }
 
+/* サブタスクカード: 幅を2/3に（親カードより小さく見せて階層を表現） */
+.inline-leaf-card {
+    width: 66.67%;
+    margin-left: auto;
+}
+
+/* 習慣記録日付ピッカー */
+.habit-date-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px 4px;
+}
+.habit-date-label { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+.habit-date-input {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 8px; font-size: 12px;
+    background: var(--bg-card); color: var(--text-primary);
+    cursor: pointer; flex: 1; max-width: 160px;
+}
+[data-theme="dark"] .habit-date-input { border-color: rgba(255,255,255,0.15); }
+
 /* バブルアップ ヘッダー */
 .bubble-up-header {
     display: flex; justify-content: flex-end; align-items: center;

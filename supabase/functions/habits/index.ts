@@ -32,8 +32,8 @@ const supabaseClient = () =>
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-async function getHabitsResponse(supabase: ReturnType<typeof supabaseClient>, user_id: string) {
-  const today = toDateString(new Date());
+async function getHabitsResponse(supabase: ReturnType<typeof supabaseClient>, user_id: string, queryDate?: string) {
+  const today = queryDate || toDateString(new Date());
   const past7 = getPast7Dates();
   const weekStart = past7[0];
 
@@ -93,6 +93,22 @@ async function getHabitsResponse(supabase: ReturnType<typeof supabaseClient>, us
   const streakMap: Record<string, number> = {};
   for (const log of todayLogs ?? []) {
     streakMap[log.habit_id] = log.streak ?? 0;
+  }
+  // 今日のログがない習慣は直近の完了ログからストリークを引き継ぐ
+  const habitsWithoutToday = habitIds.filter(id => !(id in streakMap));
+  if (habitsWithoutToday.length > 0) {
+    const yesterday = toDateString(new Date(new Date(today + 'T00:00:00').getTime() - 86400000));
+    const { data: recentLogs } = await supabase
+      .from('habit_logs')
+      .select('habit_id, streak, date, completed')
+      .eq('user_id', user_id)
+      .in('habit_id', habitsWithoutToday)
+      .eq('completed', true)
+      .gte('date', yesterday)
+      .order('date', { ascending: false });
+    for (const log of recentLogs ?? []) {
+      if (!(log.habit_id in streakMap)) streakMap[log.habit_id] = log.streak ?? 0;
+    }
   }
 
   // week_data: { mon: { habit_id: bool }, ... }
@@ -187,7 +203,8 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'GET') {
       const user_id = url.searchParams.get('user_id');
       if (!user_id) return errorResponse('user_id is required', 400);
-      const result = await getHabitsResponse(supabase, user_id);
+      const dateParam = url.searchParams.get('date') || undefined;
+      const result = await getHabitsResponse(supabase, user_id, dateParam);
       return jsonResponse(result);
     }
 

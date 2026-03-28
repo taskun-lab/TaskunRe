@@ -34,23 +34,23 @@ async function getTaskList(supabase: Supabase, user_id: string) {
 
   if (error) throw new Error(error.message);
 
-  // サブタスク件数を一括取得
-  const taskIds = (tasks ?? []).map((t) => t.id);
-  const subtaskCountMap: Record<number, number> = {};
-  const incompleteCountMap: Record<number, number> = {};
-  if (taskIds.length > 0) {
-    const { data: subtaskRows } = await supabase
-      .from('tasks')
-      .select('parent_task_id, complete_at')
-      .in('parent_task_id', taskIds);
-    for (const row of subtaskRows ?? []) {
-      if (row.parent_task_id) {
-        subtaskCountMap[row.parent_task_id] = (subtaskCountMap[row.parent_task_id] ?? 0) + 1;
-        if (row.complete_at !== 1) {
-          incompleteCountMap[row.parent_task_id] = (incompleteCountMap[row.parent_task_id] ?? 0) + 1;
-        }
-      }
+  // 全タスクを取得して子孫数を再帰カウント
+  const { data: allUserTasks } = await supabase
+    .from('tasks')
+    .select('id, parent_task_id, complete_at')
+    .eq('user_id', user_id);
+  const childrenOf: Record<number, Array<{ id: number; complete_at: number }>> = {};
+  for (const t of allUserTasks ?? []) {
+    if (t.parent_task_id) {
+      if (!childrenOf[t.parent_task_id]) childrenOf[t.parent_task_id] = [];
+      childrenOf[t.parent_task_id].push({ id: t.id, complete_at: t.complete_at });
     }
+  }
+  function countAllDescendants(id: number): { total: number; incomplete: number } {
+    const ch = childrenOf[id] ?? [];
+    let total = ch.length, incomplete = ch.filter(c => c.complete_at !== 1).length;
+    for (const c of ch) { const sub = countAllDescendants(c.id); total += sub.total; incomplete += sub.incomplete; }
+    return { total, incomplete };
   }
 
   const result: Record<string, unknown[]> = {
@@ -61,7 +61,8 @@ async function getTaskList(supabase: Supabase, user_id: string) {
   };
 
   for (const task of tasks ?? []) {
-    const t = { ...task, subtask_count: subtaskCountMap[task.id] ?? 0, incomplete_subtask_count: incompleteCountMap[task.id] ?? 0 };
+    const desc = countAllDescendants(task.id);
+    const t = { ...task, subtask_count: desc.total, incomplete_subtask_count: desc.incomplete };
     if (t.complete_at === 1) {
       result.completed.push(t);
     } else {

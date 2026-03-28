@@ -124,7 +124,7 @@ function bindUI() {
 
     // ステータスタブ
     document.getElementById('dailyTaskCard').addEventListener('click', e => {
-        if (!e.target.closest('.habit-checkbox') && !e.target.closest('.daily-btn')) {
+        if (!e.target.closest('.habit-checkbox') && !e.target.closest('.daily-btn') && !e.target.closest('.habit-date-row')) {
             document.getElementById('dailyTaskCard').classList.toggle('expanded');
         }
     });
@@ -132,6 +132,17 @@ function bindUI() {
     document.getElementById('habitCancelBtn').onclick = () => {
         document.getElementById('dailyTaskCard').classList.remove('expanded');
     };
+    // 日付ピッカー：日付変更時に該当日のデータを再読み込み
+    const habitDatePicker = document.getElementById('habitRecordDate');
+    if (habitDatePicker) {
+        habitDatePicker.addEventListener('change', e => {
+            e.stopPropagation();
+            loadHabits(habitDatePicker.value);
+        });
+        // 今日の日付をデフォルト設定
+        const t = new Date();
+        habitDatePicker.value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    }
     renderHabitList();
 
     // ステータスタブの習慣設定ボタン（Phase2）

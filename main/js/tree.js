@@ -423,8 +423,15 @@
         document.getElementById('tree-detail-overlay')?.remove();
         const isDone = node.complete_at === 1;
         const kids   = node.children || [];
-        const doneK  = kids.filter(c => c.complete_at === 1).length;
         const depth  = node.depth ?? 0;
+        // 子孫全体の数を再帰カウント
+        function countDesc(n) {
+            const ch = n.children || [];
+            let total = ch.length, done = ch.filter(c => c.complete_at === 1).length;
+            for (const c of ch) { const s = countDesc(c); total += s.total; done += s.done; }
+            return { total, done };
+        }
+        const { total: descTotal, done: descDone } = countDesc(node);
 
         const ov = document.createElement('div');
         ov.id = 'tree-detail-overlay';
@@ -439,9 +446,9 @@
         if (isDone) {
             html += `<span class="tree-detail-badge done">✓ 達成済み</span>`;
             if (node.completed_at) html += `<div class="tree-detail-row">📅 <b>完了日</b> ${fmtDate(node.completed_at)}</div>`;
-        } else if (kids.length > 0) {
-            const pct = Math.round(doneK / kids.length * 100);
-            html += `<div class="tree-detail-row">📊 <b>進捗</b> ${doneK}/${kids.length} (${pct}%)</div>
+        } else if (descTotal > 0) {
+            const pct = Math.round(descDone / descTotal * 100);
+            html += `<div class="tree-detail-row">📊 <b>進捗</b> ${descDone}/${descTotal} (${pct}%)</div>
                      <div class="tree-progress-bar"><div class="tree-progress-fill" style="width:${pct}%"></div></div>`;
         }
         if (node.reason)      html += `<div class="tree-detail-row">💡 ${escapeHtml(node.reason)}</div>`;
