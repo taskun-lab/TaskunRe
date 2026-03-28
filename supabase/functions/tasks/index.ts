@@ -41,8 +41,7 @@ async function getTaskList(supabase: Supabase, user_id: string) {
     const { data: subtaskRows } = await supabase
       .from('tasks')
       .select('parent_task_id')
-      .in('parent_task_id', taskIds)
-      .eq('complete_at', 0);
+      .in('parent_task_id', taskIds);
     for (const row of subtaskRows ?? []) {
       if (row.parent_task_id) {
         subtaskCountMap[row.parent_task_id] = (subtaskCountMap[row.parent_task_id] ?? 0) + 1;
@@ -386,15 +385,6 @@ Deno.serve(async (req: Request) => {
               .upsert({ user_id, task_id, journal_id: journals[0].id }, { onConflict: 'task_id' });
           }
 
-          // 親クエストへの達成連鎖
-          const { data: completedTask } = await supabase
-            .from('tasks')
-            .select('parent_task_id')
-            .eq('id', task_id)
-            .single();
-          if (completedTask?.parent_task_id) {
-            await propagateCompletion(supabase, completedTask.parent_task_id, user_id);
-          }
           break;
         }
 
