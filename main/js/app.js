@@ -10,6 +10,9 @@ let planData = null;
  * アプリ初期化
  */
 async function init() {
+    // Edge Functions ウォームアップ（cold start対策）
+    fetch(`${API_BASE}/app-config`, { method: 'HEAD', headers: { apikey: SUPABASE_ANON_KEY } }).catch(() => {});
+
     // checkout成功フラグ
     const urlParams = new URLSearchParams(window.location.search);
     const isCheckoutSuccess = urlParams.get('checkout') === 'success';

@@ -266,6 +266,7 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .priority-badge { display: none; }
 .card.priority-critical .priority-badge, .card.priority-high .priority-badge { display: block; }
 .card.completed .title { color: var(--text-muted); text-decoration: line-through; }
+.card.completing { opacity: 0.4; transition: opacity 0.25s ease; pointer-events: none; }
 .card.completed { background: rgba(38, 222, 129, 0.05); }
 .card.completed.priority-critical, .card.completed.priority-high { opacity: 0.6; }
 

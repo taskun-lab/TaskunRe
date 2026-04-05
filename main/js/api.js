@@ -26,13 +26,21 @@ async function apiCall(endpoint, method = 'GET', body = null) {
  * タスクアクション（完了、削除、更新など）
  */
 async function action(kind, id, extra = {}) {
+    // 楽観的UI更新
+    const row = document.querySelector(`[data-task-id="${id}"]`);
+    if (row) {
+        if (kind === 'complete') row.classList.add('completing');
+        if (kind === 'delete')   row.style.opacity = '0.3';
+    }
     try {
         await apiCall('/tasks/action', 'POST', { user_id: userId, action: kind, task_id: id, ...extra });
+        _tasksCache = null; // キャッシュ無効化
     } catch (e) {
         console.error("[ACTION] error:", e);
+        if (row) { row.classList.remove('completing'); row.style.opacity = ''; }
         alert("操作に失敗しました");
     } finally {
-        if (kind !== "remind_custom") loadList();
+        if (kind !== "remind_custom") loadList(true);
     }
 }
 

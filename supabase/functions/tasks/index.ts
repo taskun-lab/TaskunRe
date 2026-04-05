@@ -14,24 +14,17 @@ async function getTaskList(supabase: Supabase, user_id: string) {
   const now = new Date();
   const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-  // 3日以上経過した完了済みルートタスクを自動削除
-  await supabase
-    .from('tasks')
-    .delete()
-    .eq('user_id', user_id)
-    .eq('complete_at', 1)
-    .is('parent_task_id', null)
-    .lt('completed_at', threeDaysAgo);
-
-  // ルートタスクのみ取得（parent_task_id IS NULL）
-  const { data: tasks, error } = await supabase
-    .from('tasks')
-    .select('id, task_name, complete_at, sort_order, priority, vision_score, excite_score, growth_score, remind_at, priority_level, completed_at, task_type, reason, depth, target_date')
-    .eq('user_id', user_id)
-    .is('parent_task_id', null)
-    .or(`complete_at.eq.0,and(complete_at.eq.1,completed_at.gte.${threeDaysAgo})`)
-    .order('sort_order', { ascending: true });
-
+  // DELETE と SELECT を並列実行
+  const [, { data: tasks, error }] = await Promise.all([
+    supabase.from('tasks').delete()
+      .eq('user_id', user_id).eq('complete_at', 1)
+      .is('parent_task_id', null).lt('completed_at', threeDaysAgo),
+    supabase.from('tasks')
+      .select('id, task_name, complete_at, sort_order, priority, vision_score, excite_score, growth_score, remind_at, priority_level, completed_at, task_type, reason, depth, target_date')
+      .eq('user_id', user_id).is('parent_task_id', null)
+      .or(`complete_at.eq.0,and(complete_at.eq.1,completed_at.gte.${threeDaysAgo})`)
+      .order('sort_order', { ascending: true }),
+  ]);
   if (error) throw new Error(error.message);
 
   // 全タスクを取得して子孫数を再帰カウント

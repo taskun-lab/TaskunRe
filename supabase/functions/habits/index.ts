@@ -215,29 +215,29 @@ Deno.serve(async (req: Request) => {
       if (!user_id || !date || !habits) return errorResponse('user_id, date, habits are required', 400);
 
       const yesterday = toDateString(new Date(new Date(date + 'T00:00:00').getTime() - 24 * 60 * 60 * 1000));
+      const habitEntries = Object.entries(habits as Record<string, boolean>);
+      const habitIds = habitEntries.map(([id]) => id);
 
-      for (const [habit_id, completed] of Object.entries(habits as Record<string, boolean>)) {
-        let streak = 0;
-        if (completed) {
-          // 前日のストリークを取得
-          const { data: prevLog } = await supabase
-            .from('habit_logs')
-            .select('streak')
-            .eq('user_id', user_id)
-            .eq('habit_id', habit_id)
-            .eq('date', yesterday)
-            .single();
-          streak = (prevLog?.streak ?? 0) + 1;
-        }
+      // 前日ログを一括取得してstreakマップ作成
+      const { data: prevLogs } = await supabase
+        .from('habit_logs')
+        .select('habit_id, streak')
+        .eq('user_id', user_id)
+        .eq('date', yesterday)
+        .in('habit_id', habitIds);
+      const prevStreakMap: Record<string, number> = {};
+      for (const log of prevLogs ?? []) prevStreakMap[log.habit_id] = log.streak ?? 0;
 
-        const { error } = await supabase
-          .from('habit_logs')
-          .upsert(
-            { user_id, habit_id, date, completed, streak },
-            { onConflict: 'user_id,habit_id,date' },
-          );
-        if (error) return errorResponse(error.message, 500);
-      }
+      // 一括upsert
+      const upsertRows = habitEntries.map(([habit_id, completed]) => ({
+        user_id, habit_id, date,
+        completed,
+        streak: completed ? (prevStreakMap[habit_id] ?? 0) + 1 : 0,
+      }));
+      const { error: upsertErr } = await supabase
+        .from('habit_logs')
+        .upsert(upsertRows, { onConflict: 'user_id,habit_id,date' });
+      if (upsertErr) return errorResponse(upsertErr.message, 500);
 
       const result = await getHabitsResponse(supabase, user_id);
       return jsonResponse(result);

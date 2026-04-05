@@ -11,9 +11,20 @@ const completedEl = document.getElementById("completed");
 /**
  * タスクリスト読み込み
  */
-async function loadList() {
+let _tasksCache = null;
+let _tasksCacheTs = 0;
+const TASKS_CACHE_TTL = 30000;
+
+async function loadList(force = false) {
+    const now = Date.now();
+    if (!force && _tasksCache && (now - _tasksCacheTs) < TASKS_CACHE_TTL) {
+        renderList(_tasksCache);
+        return;
+    }
     try {
         const data = await apiCall(`/tasks/list?user_id=${encodeURIComponent(userId)}`);
+        _tasksCache = data;
+        _tasksCacheTs = Date.now();
         renderList(data);
     } catch (e) {
         console.error("タスク取得エラー:", e);
