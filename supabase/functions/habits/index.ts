@@ -249,6 +249,29 @@ Deno.serve(async (req: Request) => {
       const { user_id, habits } = body;
       if (!user_id || !Array.isArray(habits)) return errorResponse('user_id and habits[] are required', 400);
 
+      // 現在アクティブな習慣を取得（カテゴリ→habit_id マップ）
+      const { data: existingHabits } = await supabase
+        .from('user_habits')
+        .select('habit_id, category')
+        .eq('user_id', user_id)
+        .eq('is_active', true);
+      const oldCategoryMap: Record<string, string> = {};
+      for (const h of existingHabits ?? []) {
+        if (h.category) oldCategoryMap[h.category] = h.habit_id;
+      }
+
+      // 同カテゴリで habit_id が変わる場合はログを移行
+      for (const h of habits) {
+        const oldHabitId = oldCategoryMap[h.category];
+        if (oldHabitId && oldHabitId !== h.habit_id) {
+          await supabase
+            .from('habit_logs')
+            .update({ habit_id: h.habit_id })
+            .eq('user_id', user_id)
+            .eq('habit_id', oldHabitId);
+        }
+      }
+
       // 既存を全て無効化
       await supabase
         .from('user_habits')

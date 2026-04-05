@@ -657,8 +657,14 @@ function bindHabitCategoryModalUI() {
 
         if (customVal) {
             const CATEGORY_ICONS = { '体力': '💪', '知力': '📚', '精神力': '🧘', '節制': '🚫', '生産性': '💻', '活力': '🌅' };
+            // 既存のカスタムIDを引き継ぐ（名前だけ変えてもIDは維持 → 過去記録を保持）
+            const existingHabit = selectedHabitByCategory[cat];
+            const existingId = existingHabit?.habit_id;
+            const newId = (existingId && existingId.startsWith(`custom_${cat}_`))
+                ? existingId
+                : `custom_${cat}_${customVal}`.replace(/\s+/g,'_').toLowerCase();
             selectedHabitByCategory[cat] = {
-                habit_id: `custom_${cat}_${customVal}`.replace(/\s+/g,'_').toLowerCase(),
+                habit_id: newId,
                 habit_name: customVal,
                 category: cat,
                 icon: CATEGORY_ICONS[cat] || '✨',

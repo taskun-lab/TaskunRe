@@ -740,7 +740,7 @@ function buildLeafCard(item, rootId, container) {
             await apiCall('/tasks/action', 'POST', { user_id: userId, action: actionType, task_id: task.id });
             // 親クエストは自動完了させない。サブタスク欄はそのまま維持
             await renderBubbleUpSubtasks(rootId, container, true);  // silent: ローディング表示なし
-            loadList();  // 親カードのバッジを更新
+            _tasksCache = null;  // 次回loadList時に最新を取得（パネルは閉じない）
         } catch (err) {
             console.error(err);
             renderBubbleUpSubtasks(rootId, container);

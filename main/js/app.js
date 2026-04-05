@@ -212,6 +212,7 @@ function initPullToRefresh() {
         if (!pulling) return;
         const dy = e.touches[0].clientY - startY;
         if (dy > 0 && container.scrollTop === 0) {
+            e.preventDefault(); // LIFFウィンドウ縮小を防ぐ
             const capped = Math.min(dy * 0.6, 56);
             const progress = Math.min(dy / THRESHOLD, 1);
             indicator.style.height = `${capped}px`;
@@ -219,7 +220,7 @@ function initPullToRefresh() {
             const icon = indicator.querySelector('.pull-icon');
             if (icon) icon.style.transform = `rotate(${progress * 180}deg)`;
         }
-    }, { passive: true });
+    }, { passive: false });
 
     container.addEventListener('touchend', async e => {
         if (!pulling) return;

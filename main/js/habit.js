@@ -174,8 +174,12 @@ function renderWeekView(habits, week) {
             const dayData = weekData[day] || {};
             return Object.values(dayData).some(Boolean);
         }).length;
-        const weekText = recordedDays > 0 ? `・今週 ${recordedDays}/7日` : '';
-        label.textContent = `${m}/${d}(${dow})${weekText}`;
+        const badge = document.getElementById('dailyWeekBadge');
+        if (badge) {
+            badge.textContent = recordedDays > 0 ? `今週${recordedDays}日達成` : '';
+            badge.style.display = recordedDays > 0 ? '' : 'none';
+        }
+        label.textContent = `${m}月${d}日（${dow}）`;
     }
 }
 
