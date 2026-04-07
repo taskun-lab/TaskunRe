@@ -152,9 +152,7 @@ function bindUI() {
     const habitSettingsBtn = document.getElementById('habitSettingsBtn');
     if (habitSettingsBtn) habitSettingsBtn.onclick = () => showHabitSettingsModal();
 
-    // ジャーナルタブ
-    document.getElementById('journalDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('journalSubmitBtn').onclick = saveJournal;
+    // ジャーナルタブ（FAB・モーダルバインドは bindJournalDetailModalUI() で行う）
 
     // テーマ切替
     const savedTheme = localStorage.getItem('theme') || 'light';

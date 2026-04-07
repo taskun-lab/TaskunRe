@@ -60,7 +60,14 @@
 [data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.7); }
 [data-theme="dark"] .status-section { background: #2c2c2e; }
 [data-theme="dark"] .habit-item { background: #3a3a3c; }
-[data-theme="dark"] .journal-card { background: #2c2c2e; border-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .journal-card { background: var(--bg-card); border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .journal-card-date-col { border-right-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .journal-month-label { background: var(--bg-base); }
+[data-theme="dark"] .journal-fullscreen-modal { background: var(--bg-base); }
+[data-theme="dark"] .journal-fs-header { border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .journal-fs-title-input { background: var(--bg-base); border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .journal-fs-content-input { background: var(--bg-base); }
+[data-theme="dark"] .template-card { background: var(--bg-card); border-color: rgba(255,255,255,0.06); }
 [data-theme="dark"] .form-input, [data-theme="dark"] .form-textarea { background: #3a3a3c; border-color: rgba(255,255,255,0.15); color: #f2f2f7; }
 [data-theme="dark"] .bar-title { color: #f2f2f7; }
 [data-theme="dark"] .divider-label { background: #1c1c1e; }
@@ -923,12 +930,22 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 .journal-month-content.active { max-height: 2000px; }
 .journal-month-content-inner { padding-top: 12px; }
 
-.journal-card { background: var(--bg-card); border-radius: 16px; padding: 16px 18px; margin-bottom: 12px; box-shadow: 0 2px 12px rgba(13, 27, 42, 0.06); cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(13, 27, 42, 0.04); border-left: 4px solid var(--energy-orange); }
-.journal-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.journal-date { font-size: 12px; color: var(--text-muted); font-weight: 500; }
-.journal-tasks-count { font-size: 12px; color: var(--success-green); font-weight: 600; background: rgba(38, 222, 129, 0.1); padding: 3px 10px; border-radius: 10px; }
-.journal-title-text { font-family: 'Noto Serif JP', serif; font-size: 15px; font-weight: 600; margin-bottom: 6px; color: var(--dark-navy); }
-.journal-preview { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* === ジャーナルカード（v2：2カラム） === */
+.journal-card { display: flex; gap: 0; background: var(--bg-card); border-radius: 0; border: none; border-bottom: 1px solid rgba(13,27,42,0.06); padding: 12px 16px; margin-bottom: 0; box-shadow: none; cursor: pointer; transition: background 0.15s; }
+.journal-card:active { background: rgba(0,0,0,0.04); }
+.journal-card-date-col { width: 48px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding-right: 12px; border-right: 1px solid rgba(13,27,42,0.06); margin-right: 14px; }
+.journal-card-dow { font-size: 11px; color: var(--text-muted); }
+.journal-card-day { font-size: 26px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.journal-card-time { font-size: 10px; color: var(--text-muted); }
+.journal-card-body-col { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.journal-card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.journal-card-preview { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 月ラベル（スティッキー） */
+.journal-month-label { position: sticky; top: 0; background: var(--bg-base); padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); z-index: 10; }
+
+/* FAB */
+.journal-fab { position: fixed; bottom: 88px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--energy-orange); border: none; box-shadow: 0 4px 16px rgba(255,159,67,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 100; }
 
 /* === モーダル === */
 .modal-root { position: fixed; inset: 0; display: none; z-index: 200; align-items: flex-end; justify-content: center; }
@@ -986,25 +1003,39 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24p
 .detail-view-btn { background: var(--gradient-muscle); color: white; border: none; padding: 10px 18px; border-radius: 25px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(165, 94, 234, 0.3); }
 .week-view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 
-/* === ジャーナルモーダル === */
-.journal-modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; margin-top: 10px; }
-.journal-modal-date { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-.journal-modal-title { font-family: 'Noto Serif JP', serif; font-size: 20px; font-weight: 700; color: var(--dark-navy); }
-.journal-tasks-section { background: var(--bg-main); border-radius: 14px; padding: 14px; margin-bottom: 18px; }
-.journal-tasks-header { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-.journal-tasks-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.journal-task-chip { background: rgba(255, 159, 67, 0.12); color: var(--energy-orange); font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; }
-.journal-content-section { margin-bottom: 18px; }
-.journal-content-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
-.journal-content-body { font-size: 15px; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; }
-.journal-modal-actions { display: flex; gap: 12px; white-space: pre-line; }
-.journal-modal-actions button { flex: 1; padding: 14px; border-radius: 14px; font-size: 15px; font-weight: 600; cursor: pointer; }
-.journal-close-btn { background: var(--bg-main); border: 2px solid rgba(13, 27, 42, 0.1); color: var(--text-secondary); }
-.journal-edit-modal-btn { background: var(--energy-orange); border: none; color: white; }
-.journal-edit-form { display: none; }
-.journal-edit-form.active { display: block; }
-.journal-view-content { display: block; }
-.journal-view-content.hidden { display: none; }
+/* === ジャーナル フルスクリーンモーダル（v2） === */
+.journal-fullscreen-modal { position: fixed; inset: 0; z-index: 500; display: none; flex-direction: column; background: var(--bg-base); }
+.journal-fullscreen-modal.visible { display: flex; }
+.journal-fs-view, .journal-fs-edit { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.journal-fs-header { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(13,27,42,0.06); flex-shrink: 0; gap: 8px; }
+.journal-fs-header-center { font-size: 13px; color: var(--text-muted); text-align: center; flex: 1; }
+.journal-fs-header-right { display: flex; gap: 4px; align-items: center; }
+.journal-fs-back { background: none; border: none; padding: 6px; cursor: pointer; color: var(--energy-orange); display: flex; align-items: center; }
+.journal-fs-cancel { background: none; border: none; font-size: 15px; color: var(--text-muted); cursor: pointer; padding: 6px 4px; white-space: nowrap; }
+.journal-fs-save-btn { background: none; border: none; font-size: 15px; font-weight: 700; color: var(--energy-orange); cursor: pointer; padding: 6px 4px; white-space: nowrap; }
+.journal-fs-icon-btn { background: none; border: none; cursor: pointer; padding: 6px; color: var(--text-muted); display: flex; align-items: center; }
+.journal-fs-body { flex: 1; overflow-y: auto; padding: 20px; }
+.journal-fs-title { font-family: 'Noto Serif JP', serif; font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; line-height: 1.4; }
+.journal-fs-content { font-size: 15px; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; }
+.journal-fs-edit-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.journal-fs-title-input { border: none; outline: none; font-family: 'Noto Serif JP', serif; font-size: 20px; font-weight: 700; padding: 16px 20px; background: var(--bg-base); color: var(--text-primary); border-bottom: 1px solid rgba(13,27,42,0.06); width: 100%; box-sizing: border-box; }
+.journal-fs-title-input::placeholder { color: var(--text-muted); font-weight: 400; }
+.journal-fs-content-input { flex: 1; border: none; outline: none; font-size: 15px; line-height: 1.8; padding: 16px 20px; background: var(--bg-base); color: var(--text-primary); resize: none; width: 100%; box-sizing: border-box; font-family: inherit; }
+.journal-fs-content-input::placeholder { color: var(--text-muted); }
+
+/* === テンプレートカルーセル === */
+.template-carousel { display: flex; gap: 12px; overflow-x: scroll; scroll-snap-type: x mandatory; padding: 12px 16px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.template-carousel::-webkit-scrollbar { display: none; }
+.template-carousel:empty { display: none; }
+.template-card { flex-shrink: 0; width: 200px; scroll-snap-align: start; background: var(--bg-card); border-radius: 14px; padding: 14px; cursor: pointer; border: 1px solid rgba(13,27,42,0.05); box-shadow: 0 2px 8px rgba(13,27,42,0.06); }
+.template-card-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.template-card-content { font-size: 12px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* テンプレート詳細モーダル内要素 */
+.template-modal-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; }
+.template-modal-content { font-size: 15px; color: var(--text-primary); line-height: 1.8; white-space: pre-wrap; margin-bottom: 16px; }
+.template-modal-description { font-size: 12px; color: var(--text-muted); line-height: 1.6; white-space: pre-wrap; margin-bottom: 20px; }
+.use-template-btn { width: 100%; padding: 14px; background: var(--energy-orange); color: white; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; }
 
 /* === ローディング・空状態 === */
 .loading { text-align: center; padding: 40px; color: var(--text-muted); }
