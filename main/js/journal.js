@@ -281,22 +281,25 @@ function openNewJournalEditor(opts = {}) {
     document.getElementById('journalEditDate').textContent =
         `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${dow}）`;
 
-    // 1行目: 今日の日付、2行目以降: テンプレ内容 or 空行
-    const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()}`;
-    const body    = opts.prefillContent ? `\n${opts.prefillContent}` : '\n';
-    document.getElementById('editJournalText').value = dateStr + body;
+    const ta = document.getElementById('editJournalText');
+    if (opts.prefillContent) {
+        // テンプレ使用: 1行目=日付、2行目以降=テンプレ内容
+        const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()}`;
+        ta.value = `${dateStr}\n${opts.prefillContent}`;
+        setTimeout(() => {
+            ta.focus();
+            const pos = dateStr.length + 1;
+            ta.setSelectionRange(pos, pos);
+        }, 120);
+    } else {
+        // 通常新規: まっさら
+        ta.value = '';
+        setTimeout(() => ta.focus(), 120);
+    }
 
     document.getElementById('journalViewContent').style.display = 'none';
     document.getElementById('journalEditContent').style.display = '';
     document.getElementById('journalDetailModal').classList.add('visible');
-
-    // カーソルを2行目先頭に移動
-    setTimeout(() => {
-        const ta  = document.getElementById('editJournalText');
-        ta.focus();
-        const pos = dateStr.length + 1; // 日付 + 改行
-        ta.setSelectionRange(pos, pos);
-    }, 120);
 }
 
 /* ─────────────────────────────────────────────
@@ -312,20 +315,22 @@ function _splitTitleBody(text) {
    フルスクリーンモーダル スワイプで戻る
 ───────────────────────────────────────────── */
 function _bindSwipeToClose(modal, onBack) {
-    const EDGE_ZONE = 44; // 左端からこのpx以内で開始したときのみ有効
-    let sx = 0, sy = 0, locked = null, active = false, fromEdge = false;
+    // document レベルで監視し、モーダルが表示中かつ左端エッジからのみ発動
+    const EDGE_ZONE = 50; // 左端からこのpx以内
+    let sx = 0, sy = 0, locked = null, active = false, watching = false;
 
-    modal.addEventListener('touchstart', e => {
+    document.addEventListener('touchstart', e => {
+        if (!modal.classList.contains('visible')) return;
         sx = e.touches[0].clientX;
         sy = e.touches[0].clientY;
+        watching = sx <= EDGE_ZONE; // 左端エッジのみ
         locked   = null;
         active   = false;
-        fromEdge = sx <= EDGE_ZONE;
-        modal.style.transition = 'none';
+        if (watching) modal.style.transition = 'none';
     }, { passive: true });
 
-    modal.addEventListener('touchmove', e => {
-        if (!fromEdge) return;
+    document.addEventListener('touchmove', e => {
+        if (!watching) return;
 
         const dx = e.touches[0].clientX - sx;
         const dy = e.touches[0].clientY - sy;
@@ -341,8 +346,9 @@ function _bindSwipeToClose(modal, onBack) {
         }
     }, { passive: true });
 
-    modal.addEventListener('touchend', e => {
-        if (!active) return;
+    document.addEventListener('touchend', e => {
+        if (!watching || !active) { watching = false; return; }
+        watching = false;
         const dx = e.changedTouches[0].clientX - sx;
         modal.style.transition = 'transform 0.28s ease, opacity 0.28s ease';
 
