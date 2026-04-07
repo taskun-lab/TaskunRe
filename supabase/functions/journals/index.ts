@@ -60,7 +60,8 @@ Deno.serve(async (req: Request) => {
         .from('journals')
         .select('*')
         .eq('user_id', user_id)
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false }); // 同日内は新しいものが上
 
       if (error) return errorResponse(error.message, 500);
 

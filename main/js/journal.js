@@ -312,17 +312,21 @@ function _splitTitleBody(text) {
    フルスクリーンモーダル スワイプで戻る
 ───────────────────────────────────────────── */
 function _bindSwipeToClose(modal, onBack) {
-    let sx = 0, sy = 0, locked = null, active = false;
+    const EDGE_ZONE = 44; // 左端からこのpx以内で開始したときのみ有効
+    let sx = 0, sy = 0, locked = null, active = false, fromEdge = false;
 
     modal.addEventListener('touchstart', e => {
         sx = e.touches[0].clientX;
         sy = e.touches[0].clientY;
-        locked = null;
-        active = false;
+        locked   = null;
+        active   = false;
+        fromEdge = sx <= EDGE_ZONE;
         modal.style.transition = 'none';
     }, { passive: true });
 
     modal.addEventListener('touchmove', e => {
+        if (!fromEdge) return;
+
         const dx = e.touches[0].clientX - sx;
         const dy = e.touches[0].clientY - sy;
 
