@@ -29,6 +29,9 @@ function _timeStr(isoStr) {
    データ取得
 ───────────────────────────────────────────── */
 async function loadJournals() {
+    // 管理ボタン表示：data ロード後に確実に反映
+    _updateManageBtn();
+
     try {
         const data = await apiCall(`/journals?user_id=${encodeURIComponent(userId)}`);
         journalsData    = data.journals || [];
@@ -43,6 +46,13 @@ async function loadJournals() {
     }
     renderJournals();
     loadTemplateCarousel();
+}
+
+function _updateManageBtn() {
+    const btn = document.getElementById('journalTemplateManageBtn');
+    if (!btn) return;
+    const isDev = currentEntitlements?.role === 'developer' || currentEntitlements?.role === 'admin';
+    btn.style.display = isDev ? 'flex' : 'none';
 }
 
 /* ─────────────────────────────────────────────
@@ -468,13 +478,9 @@ function bindJournalDetailModalUI() {
         openNewJournalEditor({ prefillContent: prefill });
     };
 
-    // ── テンプレート管理ボタン（developer/admin のみ表示） ──
+    // ── テンプレート管理ボタン（表示制御は loadJournals 内の _updateManageBtn で行う） ──
     const manageBtn = document.getElementById('journalTemplateManageBtn');
-    if (manageBtn) {
-        const isDev = currentEntitlements?.role === 'developer' || currentEntitlements?.role === 'admin';
-        manageBtn.style.display = isDev ? 'flex' : 'none';
-        manageBtn.onclick = openTemplateManageModal;
-    }
+    if (manageBtn) manageBtn.onclick = openTemplateManageModal;
 
     // ── テンプレート管理モーダル ──
     const mModal = document.getElementById('templateManageModal');
