@@ -131,6 +131,12 @@
         <main style="padding:0;">
             <!-- テンプレートカルーセル -->
             <div class="template-carousel" id="templateCarousel"></div>
+            <!-- 年ナビゲーション -->
+            <div class="journal-year-nav" id="journalYearNav" style="display:none;">
+                <button class="journal-year-btn" id="journalYearPrev">◃</button>
+                <span class="journal-year-label" id="journalYearLabel">2026</span>
+                <button class="journal-year-btn" id="journalYearNext">▹</button>
+            </div>
             <!-- ジャーナルカード一覧 -->
             <div id="journalList"></div>
             <!-- FAB -->
@@ -249,8 +255,7 @@
                 <button class="journal-fs-save-btn" id="journalSaveEditBtn">保存</button>
             </div>
             <div class="journal-fs-edit-body">
-                <input type="text" class="journal-fs-title-input" id="editJournalTitle" placeholder="タイトル" />
-                <textarea class="journal-fs-content-input" id="editJournalContent" placeholder="今日の成長を記録しよう…"></textarea>
+                <textarea class="journal-fs-content-input" id="editJournalText" placeholder="1行目がタイトルになります…"></textarea>
             </div>
         </div>
     </div>
