@@ -281,12 +281,22 @@ function openNewJournalEditor(opts = {}) {
     document.getElementById('journalEditDate').textContent =
         `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${dow}）`;
 
-    document.getElementById('editJournalText').value = opts.prefillContent || '';
+    // 1行目: 今日の日付、2行目以降: テンプレ内容 or 空行
+    const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()}`;
+    const body    = opts.prefillContent ? `\n${opts.prefillContent}` : '\n';
+    document.getElementById('editJournalText').value = dateStr + body;
+
     document.getElementById('journalViewContent').style.display = 'none';
     document.getElementById('journalEditContent').style.display = '';
     document.getElementById('journalDetailModal').classList.add('visible');
 
-    setTimeout(() => document.getElementById('editJournalText').focus(), 120);
+    // カーソルを2行目先頭に移動
+    setTimeout(() => {
+        const ta  = document.getElementById('editJournalText');
+        ta.focus();
+        const pos = dateStr.length + 1; // 日付 + 改行
+        ta.setSelectionRange(pos, pos);
+    }, 120);
 }
 
 /* ─────────────────────────────────────────────
