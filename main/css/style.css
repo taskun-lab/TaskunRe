@@ -949,6 +949,10 @@ header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1p
 /* 月ラベル（スティッキー） */
 .journal-month-label { position: sticky; top: 0; background: var(--bg-main); padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); z-index: 10; }
 
+/* 管理ボタン（ヘッダー右） */
+.journal-manage-btn { background: none; border: none; padding: 6px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; border-radius: 8px; }
+.journal-manage-btn:active { background: rgba(0,0,0,0.06); }
+
 /* FAB */
 .journal-fab { position: fixed; bottom: 88px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--energy-orange); border: none; box-shadow: 0 4px 16px rgba(255,159,67,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 100; }
 

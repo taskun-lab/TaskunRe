@@ -126,6 +126,11 @@
         <header>
             <div class="bar">
                 <div class="bar-title">ジャーナル</div>
+                <button class="journal-manage-btn" id="journalTemplateManageBtn" style="display:none;" aria-label="テンプレート管理">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </button>
             </div>
         </header>
         <main style="padding:0;">
@@ -256,6 +261,50 @@
             </div>
             <div class="journal-fs-edit-body">
                 <textarea class="journal-fs-content-input" id="editJournalText" placeholder="1行目がタイトルになります…"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- テンプレート管理モーダル（developer/admin のみ） -->
+    <div id="templateManageModal" class="modal-root">
+        <div class="modal-backdrop" id="templateManageBackdrop"></div>
+        <div class="modal-panel" style="max-height:90vh;overflow-y:auto;">
+            <!-- リスト画面 -->
+            <div id="tmplListView">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;margin-top:4px;">
+                    <div style="font-size:16px;font-weight:700;color:var(--text-primary);">テンプレート管理</div>
+                    <button id="closeTemplateManage" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted);line-height:1;">&times;</button>
+                </div>
+                <div id="tmplListContainer" style="margin-bottom:12px;"></div>
+                <button class="use-template-btn" id="tmplAddNewBtn">＋ テンプレートを追加</button>
+            </div>
+            <!-- フォーム画面 -->
+            <div id="tmplFormView" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;margin-top:4px;">
+                    <div style="font-size:16px;font-weight:700;color:var(--text-primary);" id="tmplFormTitle">テンプレートを追加</div>
+                    <button id="tmplFormBack" style="background:none;border:none;font-size:15px;cursor:pointer;color:var(--text-muted);">← 戻る</button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">見出し</label>
+                    <input type="text" class="form-input" id="tmplInputTitle" placeholder="例: 5分間ジャーナリング" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">内容（ジャーナルに流し込まれるテキスト）</label>
+                    <textarea class="form-textarea" id="tmplInputContent" placeholder="例: ①今日の気分&#10;②昨日の反省&#10;③今日やること" style="min-height:120px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">説明（詳細モーダルのみ表示）</label>
+                    <textarea class="form-textarea" id="tmplInputDescription" placeholder="科学的根拠や使い方を説明…" style="min-height:80px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">並び順</label>
+                    <input type="number" class="form-input" id="tmplInputOrder" placeholder="1" min="1" />
+                </div>
+                <input type="hidden" id="tmplInputId" />
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                    <button class="btn-secondary" id="tmplFormCancelBtn" style="flex:1;">キャンセル</button>
+                    <button class="btn-primary-solid" id="tmplFormSaveBtn" style="flex:2;">保存</button>
+                </div>
             </div>
         </div>
     </div>
