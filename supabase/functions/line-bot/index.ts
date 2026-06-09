@@ -131,10 +131,14 @@ Deno.serve(async (req: Request) => {
 
         if (action === 'remind_set') {
           const datetime = event.postback?.params?.datetime || '';
+          console.log(`[remind_set] task_id=${task_id} datetime="${datetime}" dataId=${dataId}`);
           if (task_id && datetime) {
-            // LINE datetimepicker は JST を返すので +09:00 付加
-            const remind_at = new Date(`${datetime}:00+09:00`).toISOString();
-            await supabase.from('tasks').update({ remind_at }).eq('id', task_id).eq('user_id', dataId);
+            // LINE datetimepicker は JST を返す。iOS は "YYYY-MM-DDTHH:mm:ss" 形式の場合あり
+            const dtBase = datetime.length >= 19 ? datetime.substring(0, 19) : `${datetime}:00`;
+            const remind_at = new Date(`${dtBase}+09:00`).toISOString();
+            console.log(`[remind_set] remind_at=${remind_at}`);
+            const { error: updateError } = await supabase.from('tasks').update({ remind_at }).eq('id', task_id).eq('user_id', dataId);
+            console.log(`[remind_set] updateError=${JSON.stringify(updateError)}`);
             const localStr = new Date(remind_at).toLocaleString('ja-JP', {
               timeZone: 'Asia/Tokyo',
               year: 'numeric', month: '2-digit', day: '2-digit',
@@ -143,6 +147,8 @@ Deno.serve(async (req: Request) => {
             if (replyToken) {
               await replyLine(replyToken, [{ type: 'text', text: `リマインドを設定したよ！🔔\n${localStr} に通知するね！` }]);
             }
+          } else {
+            console.log(`[remind_set] skipped: task_id=${!!task_id} datetime=${!!datetime}`);
           }
         } else if (action === 'remind_none') {
           if (replyToken) {
