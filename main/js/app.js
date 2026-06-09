@@ -118,8 +118,15 @@ async function init() {
         return;
     }
 
-    // entitlements、プラン一覧、app_configを取得
-    await Promise.all([loadEntitlements(), loadPlans(), loadAppConfig()]);
+    // entitlements を先に取得（group_id の確認が必要なため）
+    await loadEntitlements();
+    // liff.getContext() でグループ検出できなかった場合、DB の group_id でフォールバック
+    if (!isGroupContext && currentEntitlements?.group_id) {
+        userId = currentEntitlements.group_id;
+        isGroupContext = true;
+        console.log('[LIFF] group_id from DB → userId =', userId);
+    }
+    await Promise.all([loadPlans(), loadAppConfig()]);
 
     // checkout成功時のリトライ処理
     if (isCheckoutSuccess) {

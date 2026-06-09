@@ -59,6 +59,7 @@ Deno.serve(async (req: Request) => {
       can_journal: isPrivileged ? true : user.can_journal,
       subscription_status: user.subscription_status,
       current_period_end: user.current_period_end,
+      group_id: user.group_id || null,
     });
   } catch (e) {
     return errorResponse(String(e), 500);

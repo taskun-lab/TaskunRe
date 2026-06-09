@@ -221,6 +221,25 @@ Deno.serve(async (req: Request) => {
           });
         }
 
+        // グループメンバー（送信者個人）に group_id を紐付け（LIFF がグループタスクを参照できるよう）
+        if (individualUserId) {
+          const { data: existingMember } = await supabase
+            .from('users').select('user_id').eq('user_id', individualUserId).single();
+          if (existingMember) {
+            await supabase.from('users').update({ group_id: groupId }).eq('user_id', individualUserId);
+          } else {
+            await supabase.from('users').insert({
+              user_id: individualUserId,
+              group_id: groupId,
+              role: 'user',
+              plan_code: 'free',
+              task_limit: 10,
+              can_status: false,
+              can_journal: false,
+            });
+          }
+        }
+
         // タスク保存（グループ共有）
         const { data: inserted, error: insertError } = await supabase
           .from('tasks')
