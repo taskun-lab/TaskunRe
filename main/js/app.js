@@ -6,6 +6,7 @@ let userId = null;
 let isGroupContext = false;
 let currentEntitlements = null;
 let planData = null;
+let _earlyContext = null;
 
 /**
  * アプリ初期化
@@ -28,7 +29,7 @@ async function init() {
         await liff.init({ liffId: LIFF_ID });
 
         // グループコンテキストを init 直後に取得（iOS ではプロフィール取得前に確認する必要がある）
-        let _earlyContext = null;
+        _earlyContext = null;
         try {
             _earlyContext = liff.getContext();
             console.log('[LIFF] context type:', _earlyContext?.type, '/ groupId:', _earlyContext?.groupId || 'none');
@@ -121,7 +122,7 @@ async function init() {
     // entitlements を先に取得（group_id の確認が必要なため）
     await loadEntitlements();
     // liff.getContext() でグループ検出できなかった場合、DB の group_id でフォールバック
-    if (!isGroupContext && currentEntitlements?.group_id) {
+    if (!isGroupContext && currentEntitlements?.group_id && _earlyContext === null) {
         userId = currentEntitlements.group_id;
         isGroupContext = true;
         console.log('[LIFF] group_id from DB → userId =', userId);
