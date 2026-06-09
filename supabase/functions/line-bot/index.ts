@@ -23,43 +23,73 @@ const supabaseClient = () =>
 async function replyLine(replyToken: string, messages: object[]): Promise<void> {
   const token = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
   if (!token) return;
-
   await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ replyToken, messages }),
   });
 }
 
-function calcRemindAt(when: string): string | null {
-  const now = new Date();
-  switch (when) {
-    case 'tonight': {
-      const d = new Date(now);
-      d.setHours(21, 0, 0, 0);
-      if (d <= now) d.setDate(d.getDate() + 1);
-      return d.toISOString();
-    }
-    case 'tomorrow_morning': {
-      const d = new Date(now);
-      d.setDate(d.getDate() + 1);
-      d.setHours(8, 0, 0, 0);
-      return d.toISOString();
-    }
-    case 'next_monday': {
-      const d = new Date(now);
-      const daysUntilMonday = (8 - d.getDay()) % 7 || 7;
-      d.setDate(d.getDate() + daysUntilMonday);
-      d.setHours(8, 0, 0, 0);
-      return d.toISOString();
-    }
-    default:
-      return null;
+function parseQS(data: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const pair of data.split('&')) {
+    const [k, v] = pair.split('=');
+    if (k) result[decodeURIComponent(k)] = decodeURIComponent(v || '');
   }
+  return result;
 }
+
+function remindQuickReply(taskId: string) {
+  return {
+    items: [
+      {
+        type: 'action',
+        action: {
+          type: 'datetimepicker',
+          label: 'カレンダー表示🗓️',
+          data: `action=remind_set&task_id=${taskId}`,
+          mode: 'datetime',
+        },
+      },
+      {
+        type: 'action',
+        action: {
+          type: 'postback',
+          label: 'リマインドしない',
+          data: `action=remind_none&task_id=${taskId}`,
+        },
+      },
+    ],
+  };
+}
+
+const LIFF_URL = Deno.env.get('LIFF_URL') || 'https://liff.line.me/2008277838-k2Pzxo0I';
+
+const USAGE_GROUP = `使い方わっしょいっ！！💪
+
+【グループでの使い方】
+@ムキムキタスくん に続けてタスクを送ると、グループの共有リストに追加されるよ！
+
+【コマンド】
+📋 @ムキムキタスくん リスト → タスク一覧を表示
+❓ @ムキムキタスくん 使い方 → この案内を表示
+
+【追加例】
+@ムキムキタスくん 明日の会議の資料を準備する
+
+Let'sムキムキ‼💪`;
+
+const USAGE_PERSONAL = `使い方わっしょいっ！！💪
+
+メッセージを送るとタスクカードとしてリストに保存されるよ！
+
+【コマンド】
+📋 リスト → タスク一覧を表示
+❓ 使い方 → この案内を表示
+
+リストに保存したタスクはアプリで管理できるよ！
+
+Let'sムキムキ‼💪`;
 
 Deno.serve(async (req: Request) => {
   const { corsResponse, jsonResponse, errorResponse } = buildCors(req.headers.get('origin'));
@@ -68,7 +98,6 @@ Deno.serve(async (req: Request) => {
   try {
     if (req.method !== 'POST') return errorResponse('Method not allowed', 405);
 
-    // LINE Webhook 署名検証
     const channelSecret = Deno.env.get('LINE_CHANNEL_SECRET');
     const signature = req.headers.get('x-line-signature') ?? '';
     const rawBody = await req.text();
@@ -80,37 +109,44 @@ Deno.serve(async (req: Request) => {
 
     const body = JSON.parse(rawBody);
     const events = body?.events;
-
     if (!Array.isArray(events) || events.length === 0) return jsonResponse({ ok: true });
 
     const supabase = supabaseClient();
+    const botUserId = Deno.env.get('LINE_BOT_USER_ID') || '';
 
     for (const event of events) {
       const replyToken = event?.replyToken;
-      const user_id = event?.source?.userId;
-      if (!user_id) continue;
+      const source = event?.source || {};
+      const isGroup = source.type === 'group';
+      const groupId: string = source.groupId || '';
+      const individualUserId: string = source.userId || '';
+      const dataId = isGroup ? groupId : individualUserId;
+      if (!dataId) continue;
 
-      // ポストバック（リマインド設定）
+      // ── ポストバック（リマインド設定） ──────────────────────────────
       if (event.type === 'postback') {
-        const data: string = event.postback?.data ?? '';
-        if (data.startsWith('remind|')) {
-          const parts = data.split('|');
-          const task_id = parts[1];
-          const when = parts[2];
+        const params = parseQS(event.postback?.data ?? '');
+        const action = params.action || '';
+        const task_id = params.task_id || '';
 
-          if (when === 'none') {
+        if (action === 'remind_set') {
+          const datetime = event.postback?.params?.datetime || '';
+          if (task_id && datetime) {
+            // LINE datetimepicker は JST を返すので +09:00 付加
+            const remind_at = new Date(`${datetime}:00+09:00`).toISOString();
+            await supabase.from('tasks').update({ remind_at }).eq('id', task_id).eq('user_id', dataId);
+            const localStr = new Date(remind_at).toLocaleString('ja-JP', {
+              timeZone: 'Asia/Tokyo',
+              year: 'numeric', month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit',
+            });
             if (replyToken) {
-              await replyLine(replyToken, [{ type: 'text', text: '✅ リマインドなしで設定しました！' }]);
+              await replyLine(replyToken, [{ type: 'text', text: `リマインドを設定したよ！🔔\n${localStr} に通知するね！` }]);
             }
-          } else {
-            const remind_at = calcRemindAt(when);
-            if (task_id && remind_at) {
-              await supabase.from('tasks').update({ remind_at }).eq('id', task_id).eq('user_id', user_id);
-              const label = when === 'tonight' ? '今夜21時' : when === 'tomorrow_morning' ? '明日朝8時' : '来週月曜朝8時';
-              if (replyToken) {
-                await replyLine(replyToken, [{ type: 'text', text: `🔔 ${label}にリマインドします！` }]);
-              }
-            }
+          }
+        } else if (action === 'remind_none') {
+          if (replyToken) {
+            await replyLine(replyToken, [{ type: 'text', text: '了解！リマインドなしだね！' }]);
           }
         }
         continue;
@@ -118,78 +154,159 @@ Deno.serve(async (req: Request) => {
 
       // テキストメッセージ以外は無視
       if (event?.message?.type !== 'text') continue;
-      const task_name: string = event.message.text;
+      const rawText: string = event.message.text || '';
 
-      // ユーザー登録（未登録の場合）
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('user_id')
-        .eq('user_id', user_id)
-        .single();
+      // ── グループモード ────────────────────────────────────────────
+      if (isGroup) {
+        // ボットへのメンションチェック（LINE_BOT_USER_ID で厳密判定）
+        const mentionees: Array<{ type: string; userId?: string; index: number; length: number }> =
+          event.message?.mention?.mentionees || [];
 
-      if (!existingUser) {
-        await supabase.from('users').insert({
-          user_id,
-          role: 'user',
-          plan_code: 'free',
-          task_limit: 10,
-          can_status: false,
-          can_journal: false,
-          subscription_status: null,
-          current_period_end: null,
-        });
-      }
+        const isMentioned = botUserId
+          ? mentionees.some(m => m.type === 'user' && m.userId === botUserId)
+          : mentionees.length > 0; // BOT_USER_ID 未設定時はメンションがあれば反応
 
-      // タスク挿入
-      const { data: inserted, error: insertError } = await supabase
-        .from('tasks')
-        .insert({
-          user_id,
-          task_name,
-          complete_at: 0,
-          task_type: 'appointment',
-          priority: 0,
-          priority_level: 'active',
-          sort_order: 0,
-        })
-        .select('id')
-        .single();
+        if (!isMentioned) continue;
 
-      if (insertError) {
-        if (replyToken) {
-          await replyLine(replyToken, [{ type: 'text', text: 'タスクの追加に失敗しました。もう一度お試しください。' }]);
+        // メンション部分をテキストから除去（後ろから処理してインデックスがずれないように）
+        let text = rawText;
+        const sortedMentions = [...mentionees].sort((a, b) => b.index - a.index);
+        for (const m of sortedMentions) {
+          text = text.slice(0, m.index) + text.slice(m.index + m.length);
         }
-        continue;
-      }
+        text = text.trim();
 
-      const task_id = inserted?.id;
+        // コマンド処理
+        if (text === 'リスト') {
+          if (replyToken) {
+            await replyLine(replyToken, [{
+              type: 'text',
+              text: 'グループのタスクリストはこちらから👇',
+              quickReply: {
+                items: [{ type: 'action', action: { type: 'uri', label: 'リストを見る', uri: LIFF_URL } }],
+              },
+            }]);
+          }
+          continue;
+        }
 
-      // Quick Reply でリマインド時刻を選択させる
-      if (replyToken && task_id) {
-        await replyLine(replyToken, [{
-          type: 'text',
-          text: `☑ 追加しました！\nリマインドはいつにしますか？`,
-          quickReply: {
-            items: [
-              {
-                type: 'action',
-                action: { type: 'postback', label: '今夜21時', data: `remind|${task_id}|tonight`, displayText: '今夜21時' },
+        if (text === '使い方') {
+          if (replyToken) await replyLine(replyToken, [{ type: 'text', text: USAGE_GROUP }]);
+          continue;
+        }
+
+        if (!text) continue; // メンションのみで本文なし
+
+        // グループをusersテーブルに登録（未登録の場合）
+        const { data: existingGroup } = await supabase
+          .from('users').select('user_id').eq('user_id', groupId).single();
+        if (!existingGroup) {
+          await supabase.from('users').insert({
+            user_id: groupId,
+            role: 'user',
+            plan_code: 'free',
+            task_limit: 50,
+            can_status: false,
+            can_journal: false,
+            subscription_status: null,
+            current_period_end: null,
+          });
+        }
+
+        // タスク保存（グループ共有）
+        const { data: inserted, error: insertError } = await supabase
+          .from('tasks')
+          .insert({
+            user_id: groupId,
+            task_name: text,
+            complete_at: 0,
+            task_type: 'appointment',
+            priority: 0,
+            priority_level: 'active',
+            sort_order: 0,
+          })
+          .select('id')
+          .single();
+
+        if (insertError) {
+          if (replyToken) await replyLine(replyToken, [{ type: 'text', text: 'タスクの追加に失敗しました。もう一度お試しください。' }]);
+          continue;
+        }
+
+        if (replyToken && inserted?.id) {
+          await replyLine(replyToken, [{
+            type: 'text',
+            text: `『${text}』をグループのリストに追加したよ！\nリマインドはいつにする？👇`,
+            quickReply: remindQuickReply(inserted.id),
+          }]);
+        }
+
+      // ── 個人モード ──────────────────────────────────────────────
+      } else {
+        const text = rawText.trim();
+
+        // ユーザー登録（未登録の場合）
+        const { data: existingUser } = await supabase
+          .from('users').select('user_id').eq('user_id', individualUserId).single();
+        if (!existingUser) {
+          await supabase.from('users').insert({
+            user_id: individualUserId,
+            role: 'user',
+            plan_code: 'free',
+            task_limit: 10,
+            can_status: false,
+            can_journal: false,
+            subscription_status: null,
+            current_period_end: null,
+          });
+        }
+
+        // コマンド処理
+        if (text === 'リスト') {
+          if (replyToken) {
+            await replyLine(replyToken, [{
+              type: 'text',
+              text: 'リストはこちらから👇',
+              quickReply: {
+                items: [{ type: 'action', action: { type: 'uri', label: 'リストを見る', uri: LIFF_URL } }],
               },
-              {
-                type: 'action',
-                action: { type: 'postback', label: '明日朝8時', data: `remind|${task_id}|tomorrow_morning`, displayText: '明日朝8時' },
-              },
-              {
-                type: 'action',
-                action: { type: 'postback', label: '来週月曜', data: `remind|${task_id}|next_monday`, displayText: '来週月曜朝8時' },
-              },
-              {
-                type: 'action',
-                action: { type: 'postback', label: '設定しない', data: `remind|${task_id}|none`, displayText: '設定しない' },
-              },
-            ],
-          },
-        }]);
+            }]);
+          }
+          continue;
+        }
+
+        if (text === '使い方') {
+          if (replyToken) await replyLine(replyToken, [{ type: 'text', text: USAGE_PERSONAL }]);
+          continue;
+        }
+
+        // タスク保存
+        const { data: inserted, error: insertError } = await supabase
+          .from('tasks')
+          .insert({
+            user_id: individualUserId,
+            task_name: text,
+            complete_at: 0,
+            task_type: 'appointment',
+            priority: 0,
+            priority_level: 'active',
+            sort_order: 0,
+          })
+          .select('id')
+          .single();
+
+        if (insertError) {
+          if (replyToken) await replyLine(replyToken, [{ type: 'text', text: 'タスクの追加に失敗しました。もう一度お試しください。' }]);
+          continue;
+        }
+
+        if (replyToken && inserted?.id) {
+          await replyLine(replyToken, [{
+            type: 'text',
+            text: `『${text}』だね！追加したよ！\nリマインドはいつにする？👇`,
+            quickReply: remindQuickReply(inserted.id),
+          }]);
+        }
       }
     }
 

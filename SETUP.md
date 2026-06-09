@@ -28,6 +28,9 @@ Supabase Dashboard > Project Settings > Edge Functions > Secrets で以下を設
 | STRIPE_PRICE_PLUS6 | price_... |
 | STRIPE_PRICE_MAX | price_... |
 | LINE_CHANNEL_ACCESS_TOKEN | ... |
+| LINE_CHANNEL_SECRET | ... （Webhook署名検証用）|
+| LINE_BOT_USER_ID | Uxxxxxxxxxx （グループ内メンション検出用。LINE Developers > Basic Settings > Bot user ID）|
+| LIFF_URL | https://liff.line.me/2008277838-k2Pzxo0I （LINEボット返信のリンク先）|
 | APP_URL | https://<GitHubユーザー名>.github.io/<リポジトリ名> |
 
 ---
@@ -89,7 +92,7 @@ const LIFF_ID = ENV === 'DEV'
 
 1. Webhook endpoint追加:
    URL: `https://<project-ref>.supabase.co/functions/v1/stripe-webhook`
-   イベント: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted
+   イベント: checkout.session.completed, 1, customer.subscription.deleted
 2. Webhook signing secretをSUPABASE_SECRETSに設定
 
 ---

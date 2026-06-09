@@ -164,7 +164,28 @@ body {
 .tab-nav-item.active .tab-icon { opacity: 1; transform: scale(1.1); }
 @keyframes tabIconBounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
 .tab-nav-item.locked { opacity: 0.6; }
+.tab-nav-item.group-locked { opacity: 0.35; }
 .tab-nav-item .lock-icon { font-size: 9px; }
+
+/* グループモード：使用不可トースト */
+.group-lock-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 9999;
+    pointer-events: none;
+    animation: toastFadeIn 0.2s ease, toastFadeOut 0.3s ease 2.2s forwards;
+}
+@keyframes toastFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes toastFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
 /* === タブコンテンツ === */
 .tab-content { display: none; animation: fadeIn 0.3s ease; }

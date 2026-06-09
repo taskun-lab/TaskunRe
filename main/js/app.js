@@ -3,6 +3,7 @@
    ============================================= */
 
 let userId = null;
+let isGroupContext = false;
 let currentEntitlements = null;
 let planData = null;
 
@@ -78,6 +79,15 @@ async function init() {
                 return;
             }
         }
+
+        // グループコンテキスト検出（LIFFがグループトークから開かれた場合）
+        try {
+            const context = liff.getContext();
+            if (context?.type === 'group' && context.groupId) {
+                userId = context.groupId;
+                isGroupContext = true;
+            }
+        } catch (_) { /* コンテキスト取得不可（外部ブラウザ等）は無視 */ }
 
         // DEV環境：開発者以外はブロック
         if (ENV === 'DEV' && DEV_ALLOWED_USER_ID !== '<DEV_ALLOWED_USER_ID>' && userId !== DEV_ALLOWED_USER_ID) {
@@ -264,7 +274,24 @@ function updateTabIcons(theme) {
 /**
  * タブ切り替え
  */
+function showGroupLockToast() {
+    const existing = document.getElementById('groupLockToast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.id = 'groupLockToast';
+    toast.className = 'group-lock-toast';
+    toast.textContent = 'グループモードでは使用できません';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+}
+
 function switchTab(tabId) {
+    // グループモード：ステータス/ジャーナルはロック
+    if (isGroupContext && (tabId === 'status' || tabId === 'journal')) {
+        showGroupLockToast();
+        return;
+    }
+
     // gating_enabled が true の場合のみ権限チェック
     const gatingOn = typeof isGatingEnabled === 'function' && isGatingEnabled();
 
@@ -304,6 +331,17 @@ function updateTabLockUI() {
     const statusSpan = statusTab.querySelector('span');
     const journalSpan = journalTab.querySelector('span');
 
+    // グループモードロック（課金ロックより優先）
+    if (isGroupContext) {
+        if (statusSpan) statusSpan.innerHTML = 'ステータス<span class="lock-icon">👥</span>';
+        statusTab.classList.add('group-locked');
+        statusTab.classList.remove('locked');
+        if (journalSpan) journalSpan.innerHTML = 'ジャーナル<span class="lock-icon">👥</span>';
+        journalTab.classList.add('group-locked');
+        journalTab.classList.remove('locked');
+        return;
+    }
+
     if (gatingOn && currentEntitlements && !currentEntitlements.can_status) {
         if (statusSpan) statusSpan.innerHTML = 'ステータス<span class="lock-icon">🔒</span>';
         statusTab.classList.add('locked');
@@ -327,18 +365,19 @@ function updateTabLockUI() {
 async function loadAllData() {
     const promises = [loadList(), loadMissionTask()];
 
-    if (currentEntitlements?.can_status) {
-        promises.push(loadHabits(), loadMscData());
-    }
-
-    if (currentEntitlements?.can_journal) {
-        promises.push(loadJournals());
+    // グループモードはステータス・ジャーナルをロードしない
+    if (!isGroupContext) {
+        if (currentEntitlements?.can_status) {
+            promises.push(loadHabits(), loadMscData());
+        }
+        if (currentEntitlements?.can_journal) {
+            promises.push(loadJournals());
+        }
     }
 
     await Promise.all(promises);
 
-    // 週次振り返りバナーチェック（Phase1）
-    checkWeeklyReflectionBanner();
+    if (!isGroupContext) checkWeeklyReflectionBanner();
 }
 
 // ===== 週次振り返りバナー（Phase1） =====
