@@ -158,13 +158,15 @@ Deno.serve(async (req: Request) => {
 
       // ── グループモード ────────────────────────────────────────────
       if (isGroup) {
-        // ボットへのメンションチェック（LINE_BOT_USER_ID で厳密判定）
-        const mentionees: Array<{ type: string; userId?: string; index: number; length: number }> =
+        // ボットへのメンションチェック
+        // isSelf=true（LINE公式）を最優先、次にLINE_BOT_USER_IDで照合
+        const mentionees: Array<{ type: string; userId?: string; isSelf?: boolean; index: number; length: number }> =
           event.message?.mention?.mentionees || [];
 
-        const isMentioned = botUserId
-          ? mentionees.some(m => m.type === 'user' && m.userId === botUserId)
-          : mentionees.length > 0; // BOT_USER_ID 未設定時はメンションがあれば反応
+        const isMentioned = mentionees.some(m =>
+          m.isSelf === true ||
+          (botUserId && m.type === 'user' && m.userId === botUserId)
+        ) || mentionees.length > 0 && !botUserId; // BOT_USER_ID 未設定時はメンションがあれば反応
 
         if (!isMentioned) continue;
 
@@ -181,7 +183,7 @@ Deno.serve(async (req: Request) => {
           if (replyToken) {
             await replyLine(replyToken, [{
               type: 'text',
-              text: 'グループのタスクリストはこちらから👇',
+              text: 'タスクリストはこちらから👇',
               quickReply: {
                 items: [{ type: 'action', action: { type: 'uri', label: 'リストを見る', uri: LIFF_URL } }],
               },
@@ -236,7 +238,7 @@ Deno.serve(async (req: Request) => {
         if (replyToken && inserted?.id) {
           await replyLine(replyToken, [{
             type: 'text',
-            text: `『${text}』をグループのリストに追加したよ！\nリマインドはいつにする？👇`,
+            text: `『${text}』をリストに追加したよ！\nリマインドはいつにする？👇`,
             quickReply: remindQuickReply(inserted.id),
           }]);
         }
@@ -266,7 +268,7 @@ Deno.serve(async (req: Request) => {
           if (replyToken) {
             await replyLine(replyToken, [{
               type: 'text',
-              text: 'リストはこちらから👇',
+              text: 'タスクリストはこちらから👇',
               quickReply: {
                 items: [{ type: 'action', action: { type: 'uri', label: 'リストを見る', uri: LIFF_URL } }],
               },
@@ -303,7 +305,7 @@ Deno.serve(async (req: Request) => {
         if (replyToken && inserted?.id) {
           await replyLine(replyToken, [{
             type: 'text',
-            text: `『${text}』だね！追加したよ！\nリマインドはいつにする？👇`,
+            text: `『${text}』をリストに追加したよ！\nリマインドはいつにする？👇`,
             quickReply: remindQuickReply(inserted.id),
           }]);
         }
