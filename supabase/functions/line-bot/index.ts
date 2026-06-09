@@ -191,7 +191,7 @@ Deno.serve(async (req: Request) => {
               type: 'text',
               text: 'タスクリストはこちらから👇',
               quickReply: {
-                items: [{ type: 'action', action: { type: 'uri', label: 'リストを見る', uri: `${LIFF_URL}?gid=${groupId}` } }],
+                items: [{ type: 'action', action: { type: 'uri', label: 'リストを見る', uri: LIFF_URL } }],
               },
             }]);
           }

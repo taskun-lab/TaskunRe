@@ -26,9 +26,13 @@ async function init() {
     console.log(`[ムキムキタスくん] ENV=${ENV}, LIFF_ID=${LIFF_ID}`);
     try {
         await liff.init({ liffId: LIFF_ID });
-        // gid パラメータをリダイレクト前に保存（iOS でのグループコンテキスト保持）
-        const _gidFromUrl = new URLSearchParams(window.location.search).get('gid');
-        if (_gidFromUrl) sessionStorage.setItem('liff_group_id', _gidFromUrl);
+
+        // グループコンテキストを init 直後に取得（iOS ではプロフィール取得前に確認する必要がある）
+        let _earlyContext = null;
+        try {
+            _earlyContext = liff.getContext();
+            console.log('[LIFF] context type:', _earlyContext?.type, '/ groupId:', _earlyContext?.groupId || 'none');
+        } catch (_) {}
 
         if (!liff.isLoggedIn()) {
             const loginKey = 'liff_login_attempt';
@@ -56,10 +60,9 @@ async function init() {
             sessionStorage.setItem(loginKey, String(attempts + 1));
 
             if (liff.isInClient()) {
-                // LINEアプリ内ブラウザ → liff.line.me 経由（gid パラメータを保持）
+                // LINEアプリ内ブラウザ → liff.line.me 経由
                 console.log('[LIFF] LINEアプリ内 → liff.line.me へリダイレクト');
-                const _savedGid = sessionStorage.getItem('liff_group_id');
-                window.location.href = `https://liff.line.me/${LIFF_ID}` + (_savedGid ? `?gid=${_savedGid}` : '');
+                window.location.href = `https://liff.line.me/${LIFF_ID}`;
             } else {
                 // 外部ブラウザ（PC等）→ liff.login() でOAuth認証
                 console.log('[LIFF] 外部ブラウザ → liff.login() でOAuth開始');
@@ -85,24 +88,16 @@ async function init() {
             }
         }
 
-        // グループコンテキスト検出（LIFFがグループトークから開かれた場合）
+        // グループコンテキスト検出（init 直後の結果を優先、失敗時は再取得）
         try {
-            const context = liff.getContext();
+            const context = _earlyContext || liff.getContext();
+            console.log('[LIFF] final context:', context?.type, '/ userId now:', userId);
             if (context?.type === 'group' && context.groupId) {
                 userId = context.groupId;
                 isGroupContext = true;
+                console.log('[LIFF] group mode → userId =', userId);
             }
         } catch (_) { /* コンテキスト取得不可（外部ブラウザ等）は無視 */ }
-
-        // フォールバック: iOS 等で getContext() が失敗した場合、URL パラメータから復元
-        if (!isGroupContext) {
-            const gid = sessionStorage.getItem('liff_group_id') || new URLSearchParams(window.location.search).get('gid');
-            if (gid && gid.startsWith('C')) {
-                userId = gid;
-                isGroupContext = true;
-            }
-        }
-        sessionStorage.removeItem('liff_group_id');
 
         // DEV環境：開発者以外はブロック
         if (ENV === 'DEV' && DEV_ALLOWED_USER_ID !== '<DEV_ALLOWED_USER_ID>' && userId !== DEV_ALLOWED_USER_ID) {
