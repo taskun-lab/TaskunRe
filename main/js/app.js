@@ -8,6 +8,7 @@ let currentEntitlements = null;
 let planData = null;
 let _earlyContext = null;
 let _idSource = 'none'; // userId の取得元（デバッグ用）
+let _openedFromGroup = false; // グループチャットから起動されたか
 
 /**
  * アプリ初期化
@@ -96,11 +97,17 @@ async function init() {
         try {
             const context = _earlyContext || liff.getContext();
             console.log('[LIFF] final context:', context?.type, '/ userId now:', userId);
-            if (context?.type === 'group' && context.groupId) {
-                userId = context.groupId;
-                isGroupContext = true;
-                _idSource = 'context-group';
-                console.log('[LIFF] group mode → userId =', userId);
+            if (context?.type === 'group') {
+                _openedFromGroup = true;
+                // 2023年2月のLINE仕様変更により context.groupId は Messaging API の
+                // グループID（C+32桁hex）ではなく匿名化されたUUIDを返す。
+                // C形式のときだけ直接採用し、それ以外はDBの group_id で解決する。
+                if (context.groupId && /^C[0-9a-f]{32}$/.test(context.groupId)) {
+                    userId = context.groupId;
+                    isGroupContext = true;
+                    _idSource = 'context-group';
+                    console.log('[LIFF] group mode → userId =', userId);
+                }
             }
         } catch (_) { /* コンテキスト取得不可（外部ブラウザ等）は無視 */ }
 
@@ -125,11 +132,20 @@ async function init() {
 
     // entitlements を先に取得（group_id の確認が必要なため）
     await loadEntitlements();
-    // liff.getContext() でグループ検出できなかった場合、DB の group_id でフォールバック
-    if (!isGroupContext && currentEntitlements?.group_id && _earlyContext === null) {
+    // グループから起動されたが context.groupId が使えない場合（2023年仕様変更後の通常ルート）、
+    // または getContext 自体が取得できなかった場合は、DB の group_id でフォールバック
+    if (!isGroupContext && currentEntitlements?.group_id && (_openedFromGroup || _earlyContext === null)) {
         userId = currentEntitlements.group_id;
         isGroupContext = true;
+        _idSource = 'db-group';
         console.log('[LIFF] group_id from DB → userId =', userId);
+        await loadEntitlements(); // グループ側の権限（task_limit等）を取り直す
+    } else if (_openedFromGroup && !isGroupContext) {
+        // グループ起動だがDBにgroup_id未登録 → 連携手順を案内
+        const banner = document.createElement('div');
+        banner.style.cssText = 'background:#fff3cd;color:#856404;padding:10px 14px;font-size:13px;text-align:center;line-height:1.5;';
+        banner.textContent = 'グループのタスクを表示するには、グループで一度 @ムキムキタスくん にメッセージを送ってから開き直してね！';
+        document.body.prepend(banner);
     }
     await Promise.all([loadPlans(), loadAppConfig()]);
 

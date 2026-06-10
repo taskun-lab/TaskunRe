@@ -64,6 +64,22 @@ function remindQuickReply(taskId: string) {
       },
       {
         type: 'action',
+        action: { type: 'postback', label: '30分後⏰', data: `action=remind_preset&task_id=${taskId}&mins=30` },
+      },
+      {
+        type: 'action',
+        action: { type: 'postback', label: '1時間後⏰', data: `action=remind_preset&task_id=${taskId}&mins=60` },
+      },
+      {
+        type: 'action',
+        action: { type: 'postback', label: '3時間後⏰', data: `action=remind_preset&task_id=${taskId}&mins=180` },
+      },
+      {
+        type: 'action',
+        action: { type: 'postback', label: '明日この時間⏰', data: `action=remind_preset&task_id=${taskId}&mins=1440` },
+      },
+      {
+        type: 'action',
         action: {
           type: 'postback',
           label: 'リマインドしない',
@@ -136,6 +152,8 @@ Deno.serve(async (req: Request) => {
       const groupId: string = source.groupId || '';
       const individualUserId: string = source.userId || '';
       const dataId = isGroup ? groupId : individualUserId;
+      // 全イベントを記録（グループからのpostback到達確認用）
+      console.log(`[event] type=${event.type} src=${source.type} msg=${event.message?.type || '-'} pb=${(event.postback?.data || '-').substring(0, 60)}`);
       if (!dataId) continue;
 
       // ── ポストバック（リマインド設定） ──────────────────────────────
@@ -165,7 +183,24 @@ Deno.serve(async (req: Request) => {
           } else {
             console.log(`[remind_set] skipped: task_id=${!!task_id} datetime=${!!datetime}`);
           }
+        } else if (action === 'remind_preset') {
+          const mins = parseInt(params.mins || '0');
+          console.log(`[remind_preset] task_id=${task_id} mins=${mins} dataId=${dataId}`);
+          if (task_id && mins > 0) {
+            const remind_at = new Date(Date.now() + mins * 60 * 1000).toISOString();
+            const { error: updateError } = await supabase.from('tasks').update({ remind_at }).eq('id', task_id).eq('user_id', dataId);
+            console.log(`[remind_preset] updateError=${JSON.stringify(updateError)}`);
+            const localStr = new Date(remind_at).toLocaleString('ja-JP', {
+              timeZone: 'Asia/Tokyo',
+              month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit',
+            });
+            if (replyToken) {
+              await replyLine(replyToken, [{ type: 'text', text: `リマインドを設定したよ！🔔\n${localStr} に通知するね！` }]);
+            }
+          }
         } else if (action === 'remind_none') {
+          console.log(`[remind_none] task_id=${task_id} dataId=${dataId}`);
           if (replyToken) {
             await replyLine(replyToken, [{ type: 'text', text: '了解！リマインドなしだね！' }]);
           }
