@@ -39,7 +39,7 @@ function parseQS(data: string): Record<string, string> {
   return result;
 }
 
-function remindQuickReply(taskId: string) {
+function remindQuickReply(taskId: string, isGroup: boolean) {
   // JST現在時刻を基準に initial / min を設定
   // iOSのLINEは initial 未設定だと決定ボタンが反応しないことがあるため必須
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -48,75 +48,79 @@ function remindQuickReply(taskId: string) {
   const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const initial = fmt(nowJst); // 現在時刻を初期表示
   const min = initial; // 過去日時は選択不可
-  return {
-    items: [
-      {
-        type: 'action',
-        action: {
-          type: 'datetimepicker',
-          label: 'カレンダー表示🗓️',
-          data: `action=remind_set&task_id=${taskId}`,
-          mode: 'datetime',
-          initial,
-          min,
-          max: '2030-12-31T23:59',
-        },
+
+  const preset = (label: string, mins: number) => ({
+    type: 'action',
+    action: { type: 'postback', label, data: `action=remind_preset&task_id=${taskId}&mins=${mins}` },
+  });
+
+  const items: object[] = [];
+
+  // グループではdatetimepickerのpostbackがLINEから届かないため、カレンダーは個人のみ
+  if (!isGroup) {
+    items.push({
+      type: 'action',
+      action: {
+        type: 'datetimepicker',
+        label: 'カレンダーを表示🗓️',
+        data: `action=remind_set&task_id=${taskId}`,
+        mode: 'datetime',
+        initial,
+        min,
+        max: '2030-12-31T23:59',
       },
-      {
-        type: 'action',
-        action: { type: 'postback', label: '30分後', data: `action=remind_preset&task_id=${taskId}&mins=30` },
+    });
+  }
+
+  items.push(
+    preset('5分後', 5),
+    preset('10分後', 10),
+    preset('30分後', 30),
+    preset('1時間後', 60),
+    preset('3時間後', 180),
+    preset('明日この時間', 1440),
+    {
+      type: 'action',
+      action: {
+        type: 'postback',
+        label: 'リマインドしない',
+        data: `action=remind_none&task_id=${taskId}`,
       },
-      {
-        type: 'action',
-        action: { type: 'postback', label: '1時間後', data: `action=remind_preset&task_id=${taskId}&mins=60` },
-      },
-      {
-        type: 'action',
-        action: { type: 'postback', label: '3時間後', data: `action=remind_preset&task_id=${taskId}&mins=180` },
-      },
-      {
-        type: 'action',
-        action: { type: 'postback', label: '明日この時間', data: `action=remind_preset&task_id=${taskId}&mins=1440` },
-      },
-      {
-        type: 'action',
-        action: {
-          type: 'postback',
-          label: 'リマインドしない',
-          data: `action=remind_none&task_id=${taskId}`,
-        },
-      },
-    ],
-  };
+    },
+  );
+
+  return { items };
 }
 
 const LIFF_URL = Deno.env.get('LIFF_URL') || 'https://liff.line.me/2008277838-k2Pzxo0I';
 
-const USAGE_GROUP = `使い方わっしょいっ！！💪
+const USAGE_GROUP = `使い方講座どすこいっ！！💪
 
 【グループでの使い方】
-@ムキムキタスくん に続けてタスクを送ると、グループの共有リストに追加されるよ！
-
-【コマンド】
-📋 @ムキムキタスくん リスト → タスク一覧を表示
-❓ @ムキムキタスくん 使い方 → この案内を表示
+@タスくん に続けてタスクを送ると、グループの共有リストに追加されるよ！
 
 【追加例】
-@ムキムキタスくん 明日の会議の資料を準備する
+@タスくん お米買う
 
-Let'sムキムキ‼💪`;
+【コマンド】
+@タスくん リスト 
+➜ タスク一覧を表示
+@タスくん 使い方 
+➜ この案内を表示
 
-const USAGE_PERSONAL = `使い方わっしょいっ！！💪
+Let's わっしょいっ！💪`;
+
+const USAGE_PERSONAL = `使い方講座どすこいっ！！💪
 
 メッセージを送るとタスクカードとしてリストに保存されるよ！
 
 【コマンド】
-📋 リスト → タスク一覧を表示
-❓ 使い方 → この案内を表示
+リスト → タスク一覧を表示
+使い方 → この案内を表示
 
 リストに保存したタスクはアプリで管理できるよ！
 
-Let'sムキムキ‼💪`;
+Let's わっしょい‼💪`;
 
 Deno.serve(async (req: Request) => {
   const { corsResponse, jsonResponse, errorResponse } = buildCors(req.headers.get('origin'));
@@ -314,7 +318,7 @@ Deno.serve(async (req: Request) => {
           await replyLine(replyToken, [{
             type: 'text',
             text: `『${text}』をリストに追加したよ！\nリマインドはいつにする？👇`,
-            quickReply: remindQuickReply(inserted.id),
+            quickReply: remindQuickReply(inserted.id, true),
           }]);
         }
 
@@ -381,7 +385,7 @@ Deno.serve(async (req: Request) => {
           await replyLine(replyToken, [{
             type: 'text',
             text: `『${text}』をリストに追加したよ！\nリマインドはいつにする？👇`,
-            quickReply: remindQuickReply(inserted.id),
+            quickReply: remindQuickReply(inserted.id, false),
           }]);
         }
       }
