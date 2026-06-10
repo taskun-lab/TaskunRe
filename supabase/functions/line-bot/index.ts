@@ -64,19 +64,19 @@ function remindQuickReply(taskId: string) {
       },
       {
         type: 'action',
-        action: { type: 'postback', label: '30分後⏰', data: `action=remind_preset&task_id=${taskId}&mins=30` },
+        action: { type: 'postback', label: '30分後', data: `action=remind_preset&task_id=${taskId}&mins=30` },
       },
       {
         type: 'action',
-        action: { type: 'postback', label: '1時間後⏰', data: `action=remind_preset&task_id=${taskId}&mins=60` },
+        action: { type: 'postback', label: '1時間後', data: `action=remind_preset&task_id=${taskId}&mins=60` },
       },
       {
         type: 'action',
-        action: { type: 'postback', label: '3時間後⏰', data: `action=remind_preset&task_id=${taskId}&mins=180` },
+        action: { type: 'postback', label: '3時間後', data: `action=remind_preset&task_id=${taskId}&mins=180` },
       },
       {
         type: 'action',
-        action: { type: 'postback', label: '明日この時間⏰', data: `action=remind_preset&task_id=${taskId}&mins=1440` },
+        action: { type: 'postback', label: '明日この時間', data: `action=remind_preset&task_id=${taskId}&mins=1440` },
       },
       {
         type: 'action',

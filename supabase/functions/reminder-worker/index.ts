@@ -36,12 +36,7 @@ Deno.serve(async (req: Request) => {
 
     let sent = 0;
     for (const task of tasks) {
-      const localStr = new Date(task.remind_at).toLocaleString('ja-JP', {
-        timeZone: 'Asia/Tokyo',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit',
-      });
-      const msg = `⏰ リマインド！\n『${task.task_name}』\n${localStr}`;
+      const msg = `リマインドだよ！👇\n\n━━━━━━━━━━━━━\n${task.task_name}\n━━━━━━━━━━━━━`;
 
       await pushLine(task.user_id, msg, token);
 
