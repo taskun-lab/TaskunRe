@@ -46,8 +46,8 @@ function remindQuickReply(taskId: string) {
   const fmt = (d: Date) =>
     `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
   const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const initial = fmt(new Date(nowJst.getTime() + 10 * 60 * 1000)); // 10分後を初期表示
-  const min = fmt(nowJst); // 過去日時は選択不可
+  const initial = fmt(nowJst); // 現在時刻を初期表示
+  const min = initial; // 過去日時は選択不可
   return {
     items: [
       {
@@ -115,7 +115,11 @@ Deno.serve(async (req: Request) => {
 
     if (channelSecret) {
       const valid = await verifyLineSignature(rawBody, signature, channelSecret);
-      if (!valid) return errorResponse('Invalid signature', 401);
+      if (!valid) {
+        // 原因調査用：どのイベントが署名エラーになっているか記録
+        console.log(`[sig_fail] len=${rawBody.length} sig_head=${signature.substring(0, 12)} body_head=${rawBody.substring(0, 200)}`);
+        return errorResponse('Invalid signature', 401);
+      }
     }
 
     const body = JSON.parse(rawBody);

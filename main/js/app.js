@@ -7,6 +7,7 @@ let isGroupContext = false;
 let currentEntitlements = null;
 let planData = null;
 let _earlyContext = null;
+let _idSource = 'none'; // userId の取得元（デバッグ用）
 
 /**
  * アプリ初期化
@@ -77,11 +78,13 @@ async function init() {
         try {
             const profile = await liff.getProfile();
             userId = profile.userId;
+            _idSource = 'profile';
         } catch (profileError) {
             // profile scope がない場合は openid の sub で代替
             const token = liff.getDecodedIDToken();
             if (token?.sub) {
                 userId = token.sub;
+                _idSource = 'idtoken';
             } else {
                 sessionStorage.removeItem('liff_login_attempt');
                 liff.login({ redirectUri: window.location.origin + window.location.pathname });
@@ -96,6 +99,7 @@ async function init() {
             if (context?.type === 'group' && context.groupId) {
                 userId = context.groupId;
                 isGroupContext = true;
+                _idSource = 'context-group';
                 console.log('[LIFF] group mode → userId =', userId);
             }
         } catch (_) { /* コンテキスト取得不可（外部ブラウザ等）は無視 */ }

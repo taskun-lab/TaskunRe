@@ -49,7 +49,10 @@ async function action(kind, id, extra = {}) {
  */
 async function loadEntitlements() {
     try {
-        const data = await apiCall(`/me?user_id=${encodeURIComponent(userId)}`);
+        // dbg: LIFFコンテキスト種別とuserId取得元（サーバーログでの調査用）
+        const ctxType = (typeof _earlyContext !== 'undefined' && _earlyContext) ? (_earlyContext.type || 'unknown') : 'null';
+        const src = (typeof _idSource !== 'undefined') ? _idSource : 'na';
+        const data = await apiCall(`/me?user_id=${encodeURIComponent(userId)}&dbg=${encodeURIComponent(`${ctxType}-${src}`)}`);
         currentEntitlements = data;
     } catch (e) {
         console.error("Entitlements取得エラー:", e);
