@@ -24,7 +24,7 @@ Deno.serve(async (req: Request) => {
     // remind_at が現在時刻を過ぎており、まだ通知していないタスクを取得
     const { data: tasks, error } = await supabase
       .from('tasks')
-      .select('id, user_id, task_name')
+      .select('id, user_id, task_name, remind_at')
       .not('remind_at', 'is', null)
       .lte('remind_at', new Date().toISOString())
       .is('reminded_at', null)
@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
 
     let sent = 0;
     for (const task of tasks) {
-      const localStr = new Date().toLocaleString('ja-JP', {
+      const localStr = new Date(task.remind_at).toLocaleString('ja-JP', {
         timeZone: 'Asia/Tokyo',
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit',

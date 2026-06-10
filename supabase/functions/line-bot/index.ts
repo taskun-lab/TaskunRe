@@ -40,6 +40,14 @@ function parseQS(data: string): Record<string, string> {
 }
 
 function remindQuickReply(taskId: string) {
+  // JST現在時刻を基準に initial / min を設定
+  // iOSのLINEは initial 未設定だと決定ボタンが反応しないことがあるため必須
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmt = (d: Date) =>
+    `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const initial = fmt(new Date(nowJst.getTime() + 10 * 60 * 1000)); // 10分後を初期表示
+  const min = fmt(nowJst); // 過去日時は選択不可
   return {
     items: [
       {
@@ -49,6 +57,9 @@ function remindQuickReply(taskId: string) {
           label: 'カレンダー表示🗓️',
           data: `action=remind_set&task_id=${taskId}`,
           mode: 'datetime',
+          initial,
+          min,
+          max: '2030-12-31T23:59',
         },
       },
       {
