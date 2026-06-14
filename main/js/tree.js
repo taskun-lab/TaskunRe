@@ -13,28 +13,28 @@
     if (!btnList || !btnTree) return;
 
     // ─── 定数 ────────────────────────────────────
-    const QUEST_R   = 55;
-    const TASK_R    = 35;
-    const V_GAP     = 130;
-    const H_GAP     = 300;
-    const MAX_CHARS = 13;
+    const QUEST_R   = 20;
+    const TASK_R    = 13;
+    const V_GAP     = 95;
+    const H_GAP     = 230;
+    const MAX_CHARS = 14;
     const NS        = 'http://www.w3.org/2000/svg';
     const DRAG_THR  = 6;
-    const DETECT_R  = 90;
-    const ACTIVATE  = 42;
+    const DETECT_R  = 80;
+    const ACTIVATE  = 36;
 
     const C = {
-        bg       : '#080818',
-        edge     : 'rgba(100,120,255,0.35)',
-        edgeDone : 'rgba(60,60,100,0.25)',
-        quest    : '#ff9f43',
-        task     : '#7c8aff',
+        bg       : '#050510',
+        edge     : 'rgba(180,205,255,0.45)',
+        edgeDone : 'rgba(80,90,130,0.22)',
+        quest    : '#ffb347',
+        task     : '#90b4ff',
         done     : '#4ade80',
         drop     : '#ff4757',
         hint     : '#4c5bd4',
-        hintLine : 'rgba(100,130,255,0.5)',
-        label    : '#d8e4ff',
-        muted    : '#5a6a9a',
+        hintLine : 'rgba(160,185,255,0.55)',
+        label    : '#e8f2ff',
+        muted    : '#50628a',
         badge    : '#4c5bd4',
     };
 
@@ -138,9 +138,14 @@
             '-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;';
 
         const defs = svgNS('defs');
-        addGlow(defs, 'gq', 8); addGlow(defs, 'gt', 5);
-        addGlow(defs, 'gd', 6); addGlow(defs, 'gdr', 10); addGlow(defs, 'gh', 7);
+        addGlow(defs, 'gq', 12); addGlow(defs, 'gt', 7);
+        addGlow(defs, 'gd', 6);  addGlow(defs, 'gdr', 14); addGlow(defs, 'gh', 8);
         svgEl.appendChild(defs);
+
+        // 固定星空背景（パンに追従しない）
+        const starLayer = svgNS('g');
+        addStarField(starLayer);
+        svgEl.appendChild(starLayer);
 
         gEl = svgNS('g');
         // CSS transform で GPU 合成レイヤーに昇格 → ズームぶれ軽減
@@ -162,8 +167,8 @@
     function addGlow(defs, id, blur) {
         const f = svgNS('filter');
         f.setAttribute('id', id);
-        f.setAttribute('x', '-60%'); f.setAttribute('y', '-60%');
-        f.setAttribute('width', '220%'); f.setAttribute('height', '220%');
+        f.setAttribute('x', '-100%'); f.setAttribute('y', '-100%');
+        f.setAttribute('width', '300%'); f.setAttribute('height', '300%');
         const fe = svgNS('feGaussianBlur');
         fe.setAttribute('in', 'SourceGraphic'); fe.setAttribute('stdDeviation', blur); fe.setAttribute('result', 'blur');
         const fm = svgNS('feMerge');
@@ -174,7 +179,37 @@
         defs.appendChild(f);
     }
 
+    function addStarField(parent) {
+        const g = svgNS('g');
+        g.setAttribute('pointer-events', 'none');
+        let seed = 0xBEEF1337;
+        const rnd = () => {
+            seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+            return (seed >>> 0) / 0xFFFFFFFF;
+        };
+        for (let i = 0; i < 200; i++) {
+            const c = svgNS('circle');
+            c.setAttribute('cx', `${rnd() * 100}%`);
+            c.setAttribute('cy', `${rnd() * 100}%`);
+            c.setAttribute('r', String(0.15 + rnd() * 1.3));
+            c.setAttribute('fill', `rgba(210,228,255,${(0.1 + rnd() * 0.65).toFixed(2)})`);
+            g.appendChild(c);
+        }
+        parent.appendChild(g);
+    }
+
     // ─── レイアウト計算 ────────────────────────────
+    function _idHash(id) {
+        const s = String(id);
+        let h = 0x811c9dc5;
+        for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+        return h;
+    }
+    function _stagger(id, scale = 1) {
+        const h = _idHash(id);
+        return (((h & 0xFF) - 128) / 128) * 44 * scale;
+    }
+
     function computeLayout(nodes) {
         const all = [];
         let leaf = 0;
@@ -182,53 +217,84 @@
             const kids = collapsed.has(node.id) ? [] : (node.children || []);
             const info = { node, depth, x: depth * H_GAP, y: 0, parentId };
             all.push(info);
-            if (kids.length === 0) { info.y = leaf++ * V_GAP; }
-            else { const s = leaf; kids.forEach(c => visit(c, depth + 1, node.id)); info.y = ((s + leaf - 1) * V_GAP) / 2; }
+            if (kids.length === 0) {
+                info.y = leaf++ * V_GAP + _stagger(node.id);
+            } else {
+                const s = leaf;
+                kids.forEach(c => visit(c, depth + 1, node.id));
+                info.y = ((s + leaf - 1) * V_GAP) / 2 + _stagger(node.id, 0.4);
+            }
         }
         nodes.forEach(n => visit(n, 0, null));
         return all;
     }
 
-    // ─── ノード描画 ───────────────────────────────
+    // ─── ノード描画（星座スタイル）───────────────────
     function drawNode(parent, node, x, y) {
         const isDone  = node.complete_at === 1;
         const isQuest = node.task_type === 'mission';
         const isDrop  = moveMode && !isDone && node.id !== moveMode.taskId;
-        const hasKids = (node.children || []).length > 0;
-        const R = isQuest ? QUEST_R : TASK_R;
+        const R    = isQuest ? QUEST_R : TASK_R;
+        const fill = isDone ? C.done : isDrop ? C.drop : isQuest ? C.quest : C.task;
+        const gid  = isDone ? 'gd'   : isDrop ? 'gdr'  : isQuest ? 'gq'   : 'gt';
 
         const g = svgNS('g');
         g.style.cursor = 'grab';
 
-        const fill = isDone ? C.done : isDrop ? C.drop : isQuest ? C.quest : C.task;
-        const gid  = isDone ? 'gd'   : isDrop ? 'gdr'  : isQuest ? 'gq'   : 'gt';
-        g.appendChild(svgEl_('circle', { cx: x, cy: y, r: R, fill,
-            stroke: 'rgba(255,255,255,0.25)', 'stroke-width': 1.5, filter: `url(#${gid})` }));
+        // 外側ソフトグロー（光冠）
+        g.appendChild(svgEl_('circle', {
+            cx: x, cy: y, r: R * 2.6,
+            fill: 'none', stroke: fill,
+            'stroke-width': R * 1.4, 'stroke-opacity': '0.1',
+            filter: 'url(#gq)', 'pointer-events': 'none',
+        }));
 
-        if (isQuest || isDone) {
-            const ic = svgEl_('text', { x, y: y + 1, 'text-anchor': 'middle',
-                'dominant-baseline': 'middle', 'font-size': isQuest ? 30 : 22,
-                fill: 'white', 'pointer-events': 'none' });
-            ic.textContent = isDone ? '✓' : '🎯';
-            g.appendChild(ic);
+        // メイン星体（グロウフィルター付き）
+        g.appendChild(svgEl_('circle', {
+            cx: x, cy: y, r: R, fill,
+            filter: `url(#${gid})`,
+            stroke: 'rgba(255,255,255,0.5)', 'stroke-width': 0.8,
+        }));
+
+        // 中央ハイライト（星の輝き点）
+        g.appendChild(svgEl_('circle', {
+            cx: x - R * 0.28, cy: y - R * 0.28, r: R * 0.35,
+            fill: 'rgba(255,255,255,0.72)', 'pointer-events': 'none',
+        }));
+
+        // クエストバッジ
+        if (isQuest && !isDone) {
+            const badge = svgEl_('text', {
+                x, y: y + R + 12, 'text-anchor': 'middle',
+                'font-size': 8, fill: C.quest, 'pointer-events': 'none',
+                'font-weight': 700, 'letter-spacing': '1',
+            });
+            badge.textContent = 'QUEST';
+            g.appendChild(badge);
         }
 
-        const te = svgEl_('text', { x: x + R + 8, y: isDone ? y - 6 : y,
-            'dominant-baseline': 'middle', 'font-size': isQuest ? 13 : 12,
+        // ラベル
+        const te = svgEl_('text', {
+            x: x + R + 7, y,
+            'dominant-baseline': 'middle',
+            'font-size': isQuest ? 13 : 11,
             'font-weight': isQuest ? 700 : 400,
-            fill: isDone ? C.muted : C.label, 'pointer-events': 'none' });
+            fill: isDone ? C.muted : C.label, 'pointer-events': 'none',
+        });
         te.textContent = truncate(node.task_name || '(無題)', MAX_CHARS);
         if (isDone) te.setAttribute('text-decoration', 'line-through');
         g.appendChild(te);
 
+        // 完了日
         if (isDone && node.completed_at) {
-            const de = svgEl_('text', { x: x + R + 8, y: y + 7, 'dominant-baseline': 'middle',
-                'font-size': 10, fill: C.muted, 'pointer-events': 'none' });
+            const de = svgEl_('text', {
+                x: x + R + 7, y: y + 10,
+                'dominant-baseline': 'middle',
+                'font-size': 9, fill: C.muted, 'pointer-events': 'none',
+            });
             de.textContent = fmtDate(node.completed_at);
             g.appendChild(de);
         }
-
-
 
         // D&D
         let tapOk = true, dragging = false, pressed = false, startPx = 0, startPy = 0;
@@ -284,24 +350,32 @@
         parent.appendChild(g);
     }
 
-    // ─── エッジ（クリック可能）────────────────────
+    // ─── エッジ（星座線スタイル）────────────────────
     function drawEdge(parent, px, py, cx, cy, pNode, cNode) {
         const R1 = pNode.task_type === 'mission' ? QUEST_R : TASK_R;
         const R2 = cNode.task_type === 'mission' ? QUEST_R : TASK_R;
         const bothDone = pNode.complete_at === 1 && cNode.complete_at === 1;
-        const mx = (px + R1 + cx - R2) / 2;
-        const d = `M${px + R1},${py} C${mx},${py} ${mx},${cy} ${cx - R2},${cy}`;
 
-        // 視覚エッジ
-        parent.appendChild(svgEl_('path', {
-            d, fill: 'none',
+        // 円端から円端への方向ベクトル
+        const dx = cx - px, dy = cy - py;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = dx / dist, ny = dy / dist;
+        const x1 = px + nx * (R1 + 2), y1 = py + ny * (R1 + 2);
+        const x2 = cx - nx * (R2 + 2), y2 = cy - ny * (R2 + 2);
+
+        // 視覚エッジ（星座線）
+        parent.appendChild(svgEl_('line', {
+            x1, y1, x2, y2,
             stroke: bothDone ? C.edgeDone : C.edge,
-            'stroke-width': 1.5, 'pointer-events': 'none',
+            'stroke-width': bothDone ? 0.8 : 1.2,
+            'stroke-opacity': bothDone ? '0.22' : '0.55',
+            'pointer-events': 'none',
         }));
 
         // 広いヒット領域（透明・クリック可能）
-        const hit = svgEl_('path', {
-            d, fill: 'none', stroke: 'transparent', 'stroke-width': 14, cursor: 'pointer',
+        const hit = svgEl_('line', {
+            x1, y1, x2, y2,
+            stroke: 'transparent', 'stroke-width': 14, cursor: 'pointer',
         });
         hit.addEventListener('click', e => {
             e.stopPropagation();

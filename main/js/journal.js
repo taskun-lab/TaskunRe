@@ -9,34 +9,33 @@
 ───────────────────────────────────────────── */
 class JournalSwipeRow {
     constructor(element, options = {}) {
-        this.wrap = element;
-        this.sl   = element.querySelector('.sl');
-        this.actionsLeft  = element.querySelector('.actions-left');
-        this.actionsRight = element.querySelector('.actions-right');
+        this.wrap   = element;
+        this.sl     = element.querySelector('.journal-card');
+        this.jright = element.querySelector('.jright');
         this.options = {
-            dataId:    options.dataId    || null,
-            onAction:  options.onAction  || (() => {}),
+            dataId:   options.dataId   || null,
+            onAction: options.onAction || (() => {}),
         };
-        this.currentX     = 0;
-        this.startX       = 0;
-        this.startY       = 0;
-        this.isActive     = false;
-        this.isScrolling  = null;
-        this.hasMoved     = false;
+        this.currentX      = 0;
+        this.startX        = 0;
+        this.startY        = 0;
+        this.isActive      = false;
+        this.isScrolling   = null;
+        this.hasMoved      = false;
         this.offsetAtStart = 0;
-        this.rafId        = null;
-        this.gestureTarget = null;
+        this.rafId         = null;
         this._init();
     }
 
     _init() {
+        this.wrap._journalRow = this;
         if (window.PointerEvent) {
-            this.wrap.addEventListener('pointerdown', e => this._onStart(e.clientX, e.clientY, e.pointerId, e.target), { passive: true });
+            this.wrap.addEventListener('pointerdown', e => this._onStart(e.clientX, e.clientY, e.pointerId), { passive: true });
             this.wrap.addEventListener('pointermove', e => { if (this.isActive) this._onMove(e.clientX, e.clientY, e); }, { passive: false });
             this.wrap.addEventListener('pointerup',     () => { if (this.isActive) this._onEnd(); });
             this.wrap.addEventListener('pointercancel', () => { if (this.isActive) this._onEnd(); });
         } else {
-            this.wrap.addEventListener('touchstart',  e => { if (e.touches.length) this._onStart(e.touches[0].clientX, e.touches[0].clientY, null, e.target); }, { passive: true });
+            this.wrap.addEventListener('touchstart',  e => { if (e.touches.length) this._onStart(e.touches[0].clientX, e.touches[0].clientY, null); }, { passive: true });
             this.wrap.addEventListener('touchmove',   e => { if (this.isActive && e.touches.length) this._onMove(e.touches[0].clientX, e.touches[0].clientY, e); }, { passive: false });
             this.wrap.addEventListener('touchend',    () => { if (this.isActive) this._onEnd(); });
             this.wrap.addEventListener('touchcancel', () => { if (this.isActive) this._onEnd(); });
@@ -44,18 +43,17 @@ class JournalSwipeRow {
         this.wrap.addEventListener('click', this._onClick.bind(this), true);
     }
 
-    _onStart(x, y, pointerId, target) {
+    _onStart(x, y, pointerId) {
         if (currentOpenRow && currentOpenRow !== this) currentOpenRow.close();
         this.isActive      = true;
         this.startX        = x; this.startY = y;
         this.offsetAtStart = this.currentX;
         this.isScrolling   = null;
         this.hasMoved      = false;
-        this.gestureTarget = target;
         if (pointerId && this.wrap.setPointerCapture) {
             try { this.wrap.setPointerCapture(pointerId); } catch (_) {}
         }
-        this.sl.style.transition = 'none';
+        if (this.sl) this.sl.style.transition = 'none';
     }
 
     _onMove(x, y, event) {
@@ -73,60 +71,51 @@ class JournalSwipeRow {
         const total = dx + this.offsetAtStart;
         const limit = window.innerWidth * 0.8;
         this.currentX = Math.abs(total) > limit
-            ? Math.sign(total) * (limit + (Math.abs(total) - limit) * 0.2)
+            ? Math.sign(total) * (limit + (Math.abs(total) - limit) * 0.18)
             : total;
 
         if (this.rafId) cancelAnimationFrame(this.rafId);
         this.rafId = requestAnimationFrame(() => {
             this.rafId = null;
-            this.sl.style.transform = `translateX(${this.currentX}px)`;
-            if (this.currentX > 0 && this.actionsLeft)  this.actionsLeft.style.width  = `${this.currentX}px`;
-            if (this.currentX < 0 && this.actionsRight) this.actionsRight.style.width = `${Math.abs(this.currentX)}px`;
+            if (this.sl) this.sl.style.transform = `translateX(${this.currentX}px)`;
         });
     }
 
     _onEnd() {
         this.isActive = false;
         if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = null; }
-        if (this.isScrolling) { this.sl.style.transition = ''; return; }
+        if (this.isScrolling) { if (this.sl) this.sl.style.transition = ''; return; }
 
-        const BTN_W  = 84;
+        const BTN_W  = 80;
         const FULL_T = (this.wrap.offsetWidth || window.innerWidth) * 0.42;
 
-        if (this.currentX > FULL_T) {
-            this._flyOffFavorite();
-        } else if (this.currentX < -FULL_T) {
-            this._flyOffDelete();
-        } else if (this.currentX > BTN_W * 0.4) {
-            this._snapTo(BTN_W);
-            currentOpenRow = this;
-        } else if (this.currentX < -BTN_W * 0.4) {
-            this._snapTo(-BTN_W);
-            currentOpenRow = this;
-        } else {
-            this._snapTo(0);
-        }
+        if      (this.currentX > FULL_T)       this._flyOffFavorite();
+        else if (this.currentX < -FULL_T)      this._flyOffDelete();
+        else if (this.currentX > BTN_W * 0.4)  { this._snapTo(BTN_W);  currentOpenRow = this; }
+        else if (this.currentX < -BTN_W * 0.4) { this._snapTo(-BTN_W); currentOpenRow = this; }
+        else                                    this._snapTo(0);
     }
 
     _flyOffFavorite() {
-        // 折り返しアニメーション → onAction('favorite')
         this._snapTo(0);
         setTimeout(() => this.options.onAction('favorite', this.options.dataId), 200);
     }
 
     _flyOffDelete() {
         const screenW = window.innerWidth;
-        this.sl.style.transition = 'transform 350ms cubic-bezier(0.25,0.46,0.45,0.94)';
-        this.sl.style.transform  = `translateX(${-screenW}px)`;
-        if (this.actionsRight) {
-            this.actionsRight.style.transition = 'width 350ms ease-out';
-            this.actionsRight.style.width = '100%';
+        if (this.sl) {
+            this.sl.style.transition = 'transform 300ms cubic-bezier(0.25,0.46,0.45,0.94)';
+            this.sl.style.transform  = `translateX(${-screenW}px)`;
+        }
+        if (this.jright) {
+            this.jright.style.transition = 'width 300ms ease-out';
+            this.jright.style.width = '100%';
         }
         setTimeout(() => {
             const h = this.wrap.offsetHeight;
-            this.wrap.style.height   = h + 'px';
-            this.wrap.style.overflow = 'hidden';
-            this.wrap.style.transition = 'height 350ms ease-out, opacity 200ms ease-out';
+            this.wrap.style.height     = h + 'px';
+            this.wrap.style.overflow   = 'hidden';
+            this.wrap.style.transition = 'height 300ms ease-out, opacity 180ms ease-out';
             requestAnimationFrame(() => {
                 this.wrap.style.height  = '0';
                 this.wrap.style.opacity = '0';
@@ -134,8 +123,8 @@ class JournalSwipeRow {
             setTimeout(() => {
                 if (currentOpenRow === this) currentOpenRow = null;
                 this.options.onAction('delete', this.options.dataId);
-            }, 360);
-        }, 340);
+            }, 320);
+        }, 280);
     }
 
     close() {
@@ -144,29 +133,24 @@ class JournalSwipeRow {
     }
 
     _snapTo(target) {
-        const SNAP_MS = 280;
+        const SNAP_MS = 240;
         const ease    = 'cubic-bezier(0.25,0.46,0.45,0.94)';
-        this.sl.style.transition = `transform ${SNAP_MS}ms ${ease}`;
-        this.sl.style.transform  = `translateX(${target}px)`;
+        if (this.sl) {
+            this.sl.style.transition = `transform ${SNAP_MS}ms ${ease}`;
+            this.sl.style.transform  = `translateX(${target}px)`;
+        }
         this.currentX = target;
-        if (this.actionsLeft) {
-            this.actionsLeft.style.transition = `width ${SNAP_MS}ms ${ease}`;
-            this.actionsLeft.style.width  = target > 0 ? `${target}px` : '0';
+        if (this.jright) {
+            this.jright.style.transition = `width ${SNAP_MS}ms ${ease}`;
+            this.jright.style.width = '80px';
         }
-        if (this.actionsRight) {
-            this.actionsRight.style.transition = `width ${SNAP_MS}ms ${ease}`;
-            this.actionsRight.style.width = target < 0 ? `${Math.abs(target)}px` : '0';
-        }
-        setTimeout(() => { this.sl.style.transition = ''; this.hasMoved = false; }, SNAP_MS + 50);
+        setTimeout(() => { if (this.sl) this.sl.style.transition = ''; this.hasMoved = false; }, SNAP_MS + 50);
     }
 
     _onClick(e) {
         if (this.hasMoved) { e.preventDefault(); e.stopPropagation(); return; }
         if (e.target.closest('button')) return;
-        if (this.currentX !== 0) {
-            e.preventDefault(); e.stopPropagation();
-            this.close();
-        }
+        if (this.currentX !== 0) { e.preventDefault(); e.stopPropagation(); this.close(); }
     }
 
     destroy() {
@@ -290,17 +274,25 @@ function renderJournals() {
             const preview  = bodyText.replace(/\n/g, ' ').substring(0, 100);
             const isFav   = !!j.is_favorite;
 
+            const favFill = isFav ? '#ffd60a' : 'none';
+            const favStroke = isFav ? '#ffd60a' : '#333';
             html += `
                 <div class="journal-swipe-wrap" data-id="${j.id}">
-                    <div class="actions-rail">
-                        <div class="actions-left">
-                            <button class="jbtn-fav">${isFav ? '★' : '☆'}<span>${isFav ? '解除' : 'お気に入り'}</span></button>
+                    <div class="jrail">
+                        <div class="jleft">
+                            <button class="jbtn-fav">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="${favFill}" stroke="${favStroke}" stroke-width="1.8" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                <span>${isFav ? '解除' : 'お気に入り'}</span>
+                            </button>
                         </div>
-                        <div class="actions-right">
-                            <button class="jbtn-delete">🗑️<span>削除</span></button>
+                        <div class="jright">
+                            <button class="jbtn-delete">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                <span>削除</span>
+                            </button>
                         </div>
                     </div>
-                    <div class="journal-card sl" data-id="${j.id}">
+                    <div class="journal-card" data-id="${j.id}">
                         <div class="journal-card-date-col">
                             <span class="journal-card-dow">${dow}</span>
                             <span class="journal-card-day">${day}</span>
@@ -339,9 +331,10 @@ function renderJournals() {
         });
     });
 
-    // クリックでモーダルを開く
+    // クリックでモーダルを開く（スワイプ中は開かない）
     container.querySelectorAll('.journal-card').forEach(card => {
         card.onclick = () => {
+            if (card.closest('.journal-swipe-wrap')?._journalRow?.currentX !== 0) return;
             const id = String(card.dataset.id);
             let j    = journalsData.find(x => String(x.id) === id);
             if (!j) {
@@ -765,7 +758,11 @@ async function _toggleJournalFavorite(id, wrap, journal) {
     if (journal) journal.is_favorite = isFav;
     const badge = wrap.querySelector('.journal-fav-badge');
     const btn   = wrap.querySelector('.jbtn-fav');
-    if (btn) btn.innerHTML = `${isFav ? '★' : '☆'}<span>${isFav ? '解除' : 'お気に入り'}</span>`;
+    if (btn) {
+        const fill = isFav ? '#ffd60a' : 'none';
+        const strk = isFav ? '#ffd60a' : '#333';
+        btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="${fill}" stroke="${strk}" stroke-width="1.8" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>${isFav ? '解除' : 'お気に入り'}</span>`;
+    }
     if (isFav) {
         if (!badge) {
             const b = document.createElement('span');
@@ -777,7 +774,7 @@ async function _toggleJournalFavorite(id, wrap, journal) {
         badge?.remove();
     }
     try {
-        await apiCall('/journals/favorite', 'POST', { id, user_id: userId, is_favorite: isFav });
+        await apiCall('/journals/update', 'POST', { id, user_id: userId, is_favorite: isFav });
     } catch (e) {
         // ロールバック
         if (journal) journal.is_favorite = !isFav;

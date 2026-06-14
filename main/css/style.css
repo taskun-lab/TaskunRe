@@ -2010,10 +2010,14 @@ body { overscroll-behavior-y: none; }
     padding: 0 8px;
 }
 .swipe-btn-icon {
-    font-size: 18px;
-    line-height: 1;
-    display: block;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
+.swipe-btn-icon svg { display: block; width: 20px; height: 20px; }
 .swipe-btn-label {
     font-size: 10px;
     font-weight: 700;
@@ -2117,67 +2121,74 @@ body { overscroll-behavior-y: none; }
     overflow: hidden;
     touch-action: pan-y;
 }
-.journal-swipe-wrap .actions-rail {
+/* 独自クラスでCSS衝突を回避 */
+.jrail {
     position: absolute;
     inset: 0;
     display: flex;
     align-items: stretch;
+    justify-content: space-between;
     pointer-events: none;
 }
-.journal-swipe-wrap .actions-left,
-.journal-swipe-wrap .actions-right {
+.jleft {
+    width: 80px;
+    flex-shrink: 0;
     display: flex;
     align-items: stretch;
-    width: 0;
-    overflow: hidden;
+    background: #ffd60a;
     pointer-events: auto;
 }
-.journal-swipe-wrap .actions-left  { justify-content: flex-start; }
-.journal-swipe-wrap .actions-right { justify-content: flex-end; margin-left: auto; }
+.jright {
+    width: 80px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    background: #ff3b30;
+    pointer-events: auto;
+    overflow: hidden;
+}
 
 /* お気に入りボタン */
 .jbtn-fav {
-    background: #ffd60a;
-    color: #000;
+    flex: 1;
     border: none;
     cursor: pointer;
-    font-size: 20px;
+    background: transparent;
+    color: #1a1a1a;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    min-width: 84px;
-    padding: 0 8px;
+    gap: 4px;
+    padding: 0 6px;
     white-space: nowrap;
 }
 .jbtn-fav span { font-size: 10px; font-weight: 700; }
 
 /* 削除ボタン */
 .jbtn-delete {
-    background: #ff3b30;
-    color: #fff;
+    flex: 1;
     border: none;
     cursor: pointer;
-    font-size: 20px;
+    background: transparent;
+    color: #fff;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    min-width: 84px;
-    padding: 0 8px;
+    gap: 4px;
+    padding: 0 6px;
     white-space: nowrap;
 }
 .jbtn-delete span { font-size: 10px; font-weight: 700; }
 
-/* ジャーナルカード（.sl として使用）*/
-.journal-swipe-wrap .journal-card.sl {
+/* ジャーナルカードをスライド要素として使用 */
+.journal-swipe-wrap .journal-card {
     position: relative;
     z-index: 1;
+    background: var(--bg-card);
     will-change: transform;
-    cursor: pointer;
-    display: flex !important;
 }
 
 /* お気に入りバッジ */
@@ -2196,7 +2207,7 @@ body { overscroll-behavior-y: none; }
 .jbtn-fav:active,
 .jbtn-delete:active {
     opacity: 0.75;
-    transform: scale(0.95);
+    transform: scale(0.96);
     transition: transform 0.08s ease, opacity 0.08s ease;
 }
 
