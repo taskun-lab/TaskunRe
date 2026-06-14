@@ -207,9 +207,11 @@ function createTaskCard(t, isCompleted, priority) {
     // === 改良版スワイプ機能を適用 ===
     applySwipeToCard(wrap, t, isCompleted, (actionType, taskId) => {
         if (actionType === 'complete') {
-            action("complete", taskId);
-        } else if (actionType === 'uncomplete') {
-            if (checkTaskLimit()) action("uncomplete", taskId);
+            if (isCompleted) {
+                if (checkTaskLimit()) action("uncomplete", taskId);
+            } else {
+                action("complete", taskId);
+            }
         } else if (actionType === 'delete') {
             const td = wrap.__taskData;
             if (td?.task_type === 'mission') {
@@ -562,11 +564,19 @@ function checkTaskLimit() {
 }
 
 /**
- * ボタン作成ヘルパー
+ * ボタン作成ヘルパー（アイコン+ラベルレイアウト）
  */
+const _SWIPE_ICONS = {
+    '完了': '✓', '未完': '↩', '通知': '⏰', '詳細': '≡', '削除': '✕', '⚡': '⚡'
+};
 function mkBtn(label, onClick, cls) {
     const b = document.createElement("button");
-    b.textContent = label;
+    const icon = _SWIPE_ICONS[label];
+    if (icon) {
+        b.innerHTML = `<span class="swipe-btn-icon">${icon}</span><span class="swipe-btn-label">${label}</span>`;
+    } else {
+        b.textContent = label;
+    }
     if (cls) b.className = cls;
     b.addEventListener("click", e => {
         e.stopPropagation();

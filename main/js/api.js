@@ -38,7 +38,7 @@ async function action(kind, id, extra = {}) {
     } catch (e) {
         console.error("[ACTION] error:", e);
         if (row) { row.classList.remove('completing'); row.style.opacity = ''; }
-        alert("操作に失敗しました");
+        showToast('操作に失敗しました', 'error');
     } finally {
         if (kind !== "remind_custom") loadList(true);
     }
@@ -88,11 +88,11 @@ async function loadPlans() {
  */
 async function purchasePlan(planCode) {
     if (userId === 'demo_user') {
-        alert('デモモードでは購入できません。LINEからアプリを開いてください。');
+        showToast('デモモードでは購入できません。LINEからアプリを開いてください。', 'error');
         return;
     }
     if (!['plus3', 'plus6', 'max'].includes(planCode)) {
-        alert('無効なプランが選択されました。');
+        showToast('無効なプランが選択されました。', 'error');
         return;
     }
 
@@ -111,7 +111,7 @@ async function purchasePlan(planCode) {
 
         if (!data.checkout_url) {
             console.error('No checkout_url returned:', data);
-            alert('checkout_urlが返ってきません。');
+            showToast('決済URLの取得に失敗しました', 'error');
             return;
         }
 
@@ -139,7 +139,7 @@ async function purchasePlan(planCode) {
 
     } catch (e) {
         console.error('Checkout error:', e);
-        alert('購入処理中にエラーが発生しました。');
+        showToast('購入処理中にエラーが発生しました', 'error');
     } finally {
         buttons.forEach(btn => btn.disabled = false);
         if (clickedBtn) {
@@ -163,14 +163,14 @@ async function handleCheckoutSuccess() {
 
         const newPlanCode = currentEntitlements?.plan_code || 'free';
         if (newPlanCode !== initialPlanCode && newPlanCode !== 'free') {
-            alert(`プランが「${getPlanDisplayName(newPlanCode)}」にアップグレードされました！`);
+            showToast(`🎉 ${getPlanDisplayName(newPlanCode)}にアップグレードしました！`, 'success');
             updateTabLockUI();
             if (typeof updateCurrentPlanInfo === 'function') updateCurrentPlanInfo();
             return;
         }
     }
 
-    alert('プランの反映に少し時間がかかっています。\nしばらく待ってからアプリを開き直してください。');
+    showToast('プランの反映に少し時間がかかっています。アプリを開き直してください。');
 }
 
 /**

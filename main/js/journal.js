@@ -2,6 +2,179 @@
    ムキムキタスくん - ジャーナル管理 v2
    ============================================= */
 
+/* ─────────────────────────────────────────────
+   JournalSwipeRow — ジャーナルカード専用スワイプ
+   右スワイプ → お気に入り（折り返し）
+   左スワイプ → 削除（フライアウト）
+───────────────────────────────────────────── */
+class JournalSwipeRow {
+    constructor(element, options = {}) {
+        this.wrap = element;
+        this.sl   = element.querySelector('.sl');
+        this.actionsLeft  = element.querySelector('.actions-left');
+        this.actionsRight = element.querySelector('.actions-right');
+        this.options = {
+            dataId:    options.dataId    || null,
+            onAction:  options.onAction  || (() => {}),
+        };
+        this.currentX     = 0;
+        this.startX       = 0;
+        this.startY       = 0;
+        this.isActive     = false;
+        this.isScrolling  = null;
+        this.hasMoved     = false;
+        this.offsetAtStart = 0;
+        this.rafId        = null;
+        this.gestureTarget = null;
+        this._init();
+    }
+
+    _init() {
+        if (window.PointerEvent) {
+            this.wrap.addEventListener('pointerdown', e => this._onStart(e.clientX, e.clientY, e.pointerId, e.target), { passive: true });
+            this.wrap.addEventListener('pointermove', e => { if (this.isActive) this._onMove(e.clientX, e.clientY, e); }, { passive: false });
+            this.wrap.addEventListener('pointerup',     () => { if (this.isActive) this._onEnd(); });
+            this.wrap.addEventListener('pointercancel', () => { if (this.isActive) this._onEnd(); });
+        } else {
+            this.wrap.addEventListener('touchstart',  e => { if (e.touches.length) this._onStart(e.touches[0].clientX, e.touches[0].clientY, null, e.target); }, { passive: true });
+            this.wrap.addEventListener('touchmove',   e => { if (this.isActive && e.touches.length) this._onMove(e.touches[0].clientX, e.touches[0].clientY, e); }, { passive: false });
+            this.wrap.addEventListener('touchend',    () => { if (this.isActive) this._onEnd(); });
+            this.wrap.addEventListener('touchcancel', () => { if (this.isActive) this._onEnd(); });
+        }
+        this.wrap.addEventListener('click', this._onClick.bind(this), true);
+    }
+
+    _onStart(x, y, pointerId, target) {
+        if (currentOpenRow && currentOpenRow !== this) currentOpenRow.close();
+        this.isActive      = true;
+        this.startX        = x; this.startY = y;
+        this.offsetAtStart = this.currentX;
+        this.isScrolling   = null;
+        this.hasMoved      = false;
+        this.gestureTarget = target;
+        if (pointerId && this.wrap.setPointerCapture) {
+            try { this.wrap.setPointerCapture(pointerId); } catch (_) {}
+        }
+        this.sl.style.transition = 'none';
+    }
+
+    _onMove(x, y, event) {
+        const dx = x - this.startX;
+        const dy = y - this.startY;
+        if (this.isScrolling === null) {
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                this.isScrolling = Math.abs(dy) > Math.abs(dx);
+            }
+        }
+        if (this.isScrolling) return;
+        if (event && event.cancelable) event.preventDefault();
+        this.hasMoved = true;
+
+        const total = dx + this.offsetAtStart;
+        const limit = window.innerWidth * 0.8;
+        this.currentX = Math.abs(total) > limit
+            ? Math.sign(total) * (limit + (Math.abs(total) - limit) * 0.2)
+            : total;
+
+        if (this.rafId) cancelAnimationFrame(this.rafId);
+        this.rafId = requestAnimationFrame(() => {
+            this.rafId = null;
+            this.sl.style.transform = `translateX(${this.currentX}px)`;
+            if (this.currentX > 0 && this.actionsLeft)  this.actionsLeft.style.width  = `${this.currentX}px`;
+            if (this.currentX < 0 && this.actionsRight) this.actionsRight.style.width = `${Math.abs(this.currentX)}px`;
+        });
+    }
+
+    _onEnd() {
+        this.isActive = false;
+        if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = null; }
+        if (this.isScrolling) { this.sl.style.transition = ''; return; }
+
+        const BTN_W  = 84;
+        const FULL_T = (this.wrap.offsetWidth || window.innerWidth) * 0.42;
+
+        if (this.currentX > FULL_T) {
+            this._flyOffFavorite();
+        } else if (this.currentX < -FULL_T) {
+            this._flyOffDelete();
+        } else if (this.currentX > BTN_W * 0.4) {
+            this._snapTo(BTN_W);
+            currentOpenRow = this;
+        } else if (this.currentX < -BTN_W * 0.4) {
+            this._snapTo(-BTN_W);
+            currentOpenRow = this;
+        } else {
+            this._snapTo(0);
+        }
+    }
+
+    _flyOffFavorite() {
+        // 折り返しアニメーション → onAction('favorite')
+        this._snapTo(0);
+        setTimeout(() => this.options.onAction('favorite', this.options.dataId), 200);
+    }
+
+    _flyOffDelete() {
+        const screenW = window.innerWidth;
+        this.sl.style.transition = 'transform 350ms cubic-bezier(0.25,0.46,0.45,0.94)';
+        this.sl.style.transform  = `translateX(${-screenW}px)`;
+        if (this.actionsRight) {
+            this.actionsRight.style.transition = 'width 350ms ease-out';
+            this.actionsRight.style.width = '100%';
+        }
+        setTimeout(() => {
+            const h = this.wrap.offsetHeight;
+            this.wrap.style.height   = h + 'px';
+            this.wrap.style.overflow = 'hidden';
+            this.wrap.style.transition = 'height 350ms ease-out, opacity 200ms ease-out';
+            requestAnimationFrame(() => {
+                this.wrap.style.height  = '0';
+                this.wrap.style.opacity = '0';
+            });
+            setTimeout(() => {
+                if (currentOpenRow === this) currentOpenRow = null;
+                this.options.onAction('delete', this.options.dataId);
+            }, 360);
+        }, 340);
+    }
+
+    close() {
+        if (currentOpenRow === this) currentOpenRow = null;
+        this._snapTo(0);
+    }
+
+    _snapTo(target) {
+        const SNAP_MS = 280;
+        const ease    = 'cubic-bezier(0.25,0.46,0.45,0.94)';
+        this.sl.style.transition = `transform ${SNAP_MS}ms ${ease}`;
+        this.sl.style.transform  = `translateX(${target}px)`;
+        this.currentX = target;
+        if (this.actionsLeft) {
+            this.actionsLeft.style.transition = `width ${SNAP_MS}ms ${ease}`;
+            this.actionsLeft.style.width  = target > 0 ? `${target}px` : '0';
+        }
+        if (this.actionsRight) {
+            this.actionsRight.style.transition = `width ${SNAP_MS}ms ${ease}`;
+            this.actionsRight.style.width = target < 0 ? `${Math.abs(target)}px` : '0';
+        }
+        setTimeout(() => { this.sl.style.transition = ''; this.hasMoved = false; }, SNAP_MS + 50);
+    }
+
+    _onClick(e) {
+        if (this.hasMoved) { e.preventDefault(); e.stopPropagation(); return; }
+        if (e.target.closest('button')) return;
+        if (this.currentX !== 0) {
+            e.preventDefault(); e.stopPropagation();
+            this.close();
+        }
+    }
+
+    destroy() {
+        if (this.rafId) cancelAnimationFrame(this.rafId);
+        if (currentOpenRow === this) currentOpenRow = null;
+    }
+}
+
 let currentEditJournal = null;
 let journalsData = [];
 let journalsGrouped = [];
@@ -109,29 +282,64 @@ function renderJournals() {
     for (const group of filtered) {
         html += `<div class="journal-month-label">${_escJ(group.label)}</div>`;
         for (const j of group.journals) {
-            const dt   = j.created_at ? new Date(j.created_at) : new Date(j.date + 'T00:00:00');
-            const dow  = ['日','月','火','水','木','金','土'][dt.getDay()];
-            const day  = dt.getDate();
-            const time = j.created_at ? _timeStr(j.created_at) : '';
+            const dt      = j.created_at ? new Date(j.created_at) : new Date(j.date + 'T00:00:00');
+            const dow     = ['日','月','火','水','木','金','土'][dt.getDay()];
+            const day     = dt.getDate();
+            const time    = j.created_at ? _timeStr(j.created_at) : '';
             const bodyText = (j.content || '').trim();
             const preview  = bodyText.replace(/\n/g, ' ').substring(0, 100);
+            const isFav   = !!j.is_favorite;
 
             html += `
-                <div class="journal-card" data-id="${j.id}">
-                    <div class="journal-card-date-col">
-                        <span class="journal-card-dow">${dow}</span>
-                        <span class="journal-card-day">${day}</span>
-                        <span class="journal-card-time">${time}</span>
+                <div class="journal-swipe-wrap" data-id="${j.id}">
+                    <div class="actions-rail">
+                        <div class="actions-left">
+                            <button class="jbtn-fav">${isFav ? '★' : '☆'}<span>${isFav ? '解除' : 'お気に入り'}</span></button>
+                        </div>
+                        <div class="actions-right">
+                            <button class="jbtn-delete">🗑️<span>削除</span></button>
+                        </div>
                     </div>
-                    <div class="journal-card-body-col">
-                        <div class="journal-card-title">${_escJ(j.title || '無題')}</div>
-                        <div class="journal-card-preview">${_escJ(preview)}${bodyText.length > 100 ? '…' : ''}</div>
+                    <div class="journal-card sl" data-id="${j.id}">
+                        <div class="journal-card-date-col">
+                            <span class="journal-card-dow">${dow}</span>
+                            <span class="journal-card-day">${day}</span>
+                            <span class="journal-card-time">${time}</span>
+                        </div>
+                        <div class="journal-card-body-col">
+                            <div class="journal-card-title">${_escJ(j.title || '無題')}</div>
+                            <div class="journal-card-preview">${_escJ(preview)}${bodyText.length > 100 ? '…' : ''}</div>
+                        </div>
+                        ${isFav ? '<span class="journal-fav-badge">★</span>' : ''}
                     </div>
                 </div>`;
         }
     }
     container.innerHTML = html;
 
+    // スワイプ機能をバインド
+    container.querySelectorAll('.journal-swipe-wrap').forEach(wrap => {
+        const id = wrap.dataset.id;
+        let j = journalsData.find(x => String(x.id) === String(id));
+        if (!j) {
+            for (const g of journalsGrouped) {
+                const found = g.journals.find(x => String(x.id) === String(id));
+                if (found) { j = found; break; }
+            }
+        }
+        new JournalSwipeRow(wrap, {
+            dataId: id,
+            onAction: (actionType, journalId) => {
+                if (actionType === 'favorite') {
+                    _toggleJournalFavorite(journalId, wrap, j);
+                } else if (actionType === 'delete') {
+                    _deleteJournalCard(journalId);
+                }
+            }
+        });
+    });
+
+    // クリックでモーダルを開く
     container.querySelectorAll('.journal-card').forEach(card => {
         card.onclick = () => {
             const id = String(card.dataset.id);
@@ -232,7 +440,7 @@ function renderTmplList() {
                 await apiCall('/journal-templates/delete', 'POST', { user_id: userId, id: btn.dataset.id });
                 await loadTemplateCarousel();
                 renderTmplList();
-            } catch (e) { alert('削除に失敗しました'); }
+            } catch (e) { showToast('削除に失敗しました', 'error'); }
         };
     });
 }
@@ -421,7 +629,7 @@ function bindJournalDetailModalUI() {
 
     document.getElementById('journalSaveEditBtn').onclick = async () => {
         const rawText = document.getElementById('editJournalText').value.trim();
-        if (!rawText) { alert('内容を入力してください'); return; }
+        if (!rawText) { showToast('内容を入力してください', 'error'); return; }
         const { title, content } = _splitTitleBody(rawText);
 
         try {
@@ -448,7 +656,7 @@ function bindJournalDetailModalUI() {
                 closeModal();
                 await loadJournals();
             }
-        } catch (e) { alert('保存に失敗しました'); }
+        } catch (e) { showToast('保存に失敗しました', 'error'); }
     };
 
     // ── FAB ──
@@ -525,14 +733,14 @@ function bindJournalDetailModalUI() {
         const sort_order  = parseInt(document.getElementById('tmplInputOrder').value) || 0;
         const id          = document.getElementById('tmplInputId').value || null;
 
-        if (!title || !content) { alert('見出しと内容を入力してください'); return; }
+        if (!title || !content) { showToast('見出しと内容を入力してください', 'error'); return; }
         try {
             await apiCall('/journal-templates/save', 'POST', { user_id: userId, id, title, content, description, sort_order });
             await loadTemplateCarousel();
             document.getElementById('tmplListView').style.display = '';
             document.getElementById('tmplFormView').style.display = 'none';
             renderTmplList();
-        } catch (e) { alert('保存に失敗しました'); }
+        } catch (e) { showToast('保存に失敗しました', 'error'); }
     };
 }
 
@@ -544,6 +752,50 @@ async function deleteJournal(journalId) {
         await apiCall('/journals/delete', 'POST', { id: journalId, user_id: userId });
         await loadJournals();
     } catch (e) {
-        alert('削除に失敗しました');
+        showToast('削除に失敗しました', 'error');
+    }
+}
+
+/* ─────────────────────────────────────────────
+   スワイプアクション（お気に入り / 削除）
+───────────────────────────────────────────── */
+async function _toggleJournalFavorite(id, wrap, journal) {
+    const isFav = !(journal?.is_favorite);
+    // 楽観的UI更新
+    if (journal) journal.is_favorite = isFav;
+    const badge = wrap.querySelector('.journal-fav-badge');
+    const btn   = wrap.querySelector('.jbtn-fav');
+    if (btn) btn.innerHTML = `${isFav ? '★' : '☆'}<span>${isFav ? '解除' : 'お気に入り'}</span>`;
+    if (isFav) {
+        if (!badge) {
+            const b = document.createElement('span');
+            b.className = 'journal-fav-badge';
+            b.textContent = '★';
+            wrap.querySelector('.journal-card')?.appendChild(b);
+        }
+    } else {
+        badge?.remove();
+    }
+    try {
+        await apiCall('/journals/favorite', 'POST', { id, user_id: userId, is_favorite: isFav });
+    } catch (e) {
+        // ロールバック
+        if (journal) journal.is_favorite = !isFav;
+        showToast('操作に失敗しました', 'error');
+        renderJournals();
+    }
+}
+
+async function _deleteJournalCard(id) {
+    try {
+        await apiCall('/journals/delete', 'POST', { id, user_id: userId });
+        // カードはアニメーション済みなのでDOMはそのまま、データだけ更新
+        journalsData = journalsData.filter(j => String(j.id) !== String(id));
+        for (const g of journalsGrouped) {
+            g.journals = g.journals.filter(j => String(j.id) !== String(id));
+        }
+    } catch (e) {
+        showToast('削除に失敗しました', 'error');
+        await loadJournals();
     }
 }

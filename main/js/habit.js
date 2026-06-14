@@ -207,9 +207,9 @@ async function saveHabits() {
         document.getElementById('dailyTaskCard').classList.remove('expanded');
         await loadHabits();
         const isToday = recordingDate === (() => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; })();
-        alert(isToday ? '💪 記録を保存しました！' : `📅 ${recordingDate} の記録を保存しました！`);
+        showToast(isToday ? '💪 記録を保存しました！' : `📅 ${recordingDate} の記録を保存しました！`, 'success');
     } catch (e) {
-        alert('保存に失敗しました');
+        showToast('保存に失敗しました', 'error');
     }
 }
 
@@ -406,6 +406,6 @@ async function saveHabitSettings(selectedHabits) {
     try {
         await apiCall('/habits/settings', 'POST', { user_id: userId, habits: selectedHabits });
         await loadHabits();
-        alert('💪 習慣設定を保存しました！');
-    } catch (e) { alert('保存に失敗しました'); }
+        showToast('💪 習慣設定を保存しました！', 'success');
+    } catch (e) { showToast('保存に失敗しました', 'error'); }
 }

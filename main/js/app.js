@@ -235,56 +235,105 @@ function bindUI() {
 }
 
 /**
- * プルリフレッシュ初期化
+ * プルリフレッシュ初期化（SVGアーク版）
  */
 function initPullToRefresh() {
-    const container = document.querySelector('.tab-contents');
-    const indicator = document.getElementById('pullRefreshIndicator');
-    if (!container || !indicator) return;
+    const THRESHOLD = 72;
+    const SNAP_MS   = 350;
+    const EASE      = 'cubic-bezier(0.25,0.46,0.45,0.94)';
 
-    let startY = 0;
-    let pulling = false;
-    const THRESHOLD = 70;
+    const ptr = document.getElementById('pullRefreshIndicator');
+    const container = document.querySelector('.tab-contents');
+    if (!ptr || !container) return;
+
+    // SVGアーク式インジケーターに差し替え
+    ptr.innerHTML = `
+        <div class="ptr-circle">
+            <svg class="ptr-svg" viewBox="0 0 28 28" width="28" height="28">
+                <circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,159,67,0.22)" stroke-width="2.8"/>
+                <circle class="ptr-arc" cx="14" cy="14" r="11" fill="none"
+                    stroke="#ff9f43" stroke-width="2.8" stroke-linecap="round"
+                    stroke-dasharray="0 69.1" transform="rotate(-90 14 14)"/>
+            </svg>
+        </div>
+        <span class="ptr-label">引っ張って更新</span>`;
+
+    const arc = ptr.querySelector('.ptr-arc');
+    const C   = 2 * Math.PI * 11;
+
+    let startY       = 0;
+    let pullY        = 0;
+    let isPulling    = false;
+    let isRefreshing = false;
+    let startedScroll = false;
+
+    function setPtr(offset, progress, label) {
+        ptr.style.transform = `translateY(${offset - THRESHOLD}px)`;
+        ptr.style.opacity   = String(Math.min(progress * 1.5, 1));
+        arc.setAttribute('stroke-dasharray', `${C * Math.min(progress, 1)} ${C}`);
+        if (label) ptr.querySelector('.ptr-label').textContent = label;
+    }
+
+    function resetPtr() {
+        ptr.style.transition = `transform ${SNAP_MS}ms ${EASE}, opacity 280ms ease`;
+        setPtr(0, 0, '引っ張って更新');
+        ptr.classList.remove('ptr-ready', 'ptr-refreshing');
+        setTimeout(() => { ptr.style.transition = ''; }, SNAP_MS + 50);
+    }
 
     container.addEventListener('touchstart', e => {
-        if (window._treeViewActive) { pulling = false; return; }
-        if (container.scrollTop === 0) {
-            startY = e.touches[0].clientY;
-            pulling = true;
-        }
+        if (isRefreshing || window._treeViewActive) return;
+        if (container.scrollTop > 0) return;
+        startY = e.touches[0].clientY;
+        isPulling = false;
+        startedScroll = false;
+        pullY = 0;
     }, { passive: true });
 
     container.addEventListener('touchmove', e => {
-        if (!pulling) return;
+        if (isRefreshing || !startY) return;
         const dy = e.touches[0].clientY - startY;
-        if (dy > 0 && container.scrollTop === 0) {
-            e.preventDefault(); // LIFFウィンドウ縮小を防ぐ
-            const capped = Math.min(dy * 0.6, 56);
-            const progress = Math.min(dy / THRESHOLD, 1);
-            indicator.style.height = `${capped}px`;
-            indicator.style.opacity = String(progress);
-            const icon = indicator.querySelector('.pull-icon');
-            if (icon) icon.style.transform = `rotate(${progress * 180}deg)`;
+        if (!startedScroll && Math.abs(dy) < 6) return;
+        startedScroll = true;
+        if (dy <= 0) {
+            if (isPulling) resetPtr();
+            isPulling = false;
+            return;
         }
+        isPulling = true;
+        pullY = dy;
+        const clamped  = Math.min(dy * 0.46, THRESHOLD * 1.2);
+        const progress = clamped / THRESHOLD;
+        const label    = progress >= 1 ? '放して更新 ↑' : '引っ張って更新';
+        ptr.style.transition = 'none';
+        setPtr(clamped, progress, label);
+        ptr.classList.toggle('ptr-ready', progress >= 1);
+        if (e.cancelable) e.preventDefault();
     }, { passive: false });
 
-    container.addEventListener('touchend', async e => {
-        if (!pulling) return;
-        const dy = e.changedTouches[0].clientY - startY;
-        pulling = false;
-
-        if (dy > THRESHOLD) {
-            indicator.classList.add('refreshing');
-            indicator.style.height = '48px';
-            indicator.style.opacity = '1';
-            await refreshActiveTab();
-            indicator.classList.remove('refreshing');
+    container.addEventListener('touchend', async () => {
+        if (!isPulling) return;
+        isPulling = false;
+        const clamped = Math.min(pullY * 0.46, THRESHOLD * 1.2);
+        if (clamped < THRESHOLD) {
+            resetPtr();
+            pullY = 0;
+            return;
         }
-
-        indicator.style.height = '0';
-        indicator.style.opacity = '0';
-        const icon = indicator.querySelector('.pull-icon');
-        if (icon) icon.style.transform = '';
+        isRefreshing = true;
+        ptr.classList.add('ptr-refreshing');
+        ptr.classList.remove('ptr-ready');
+        ptr.style.transition = `transform ${SNAP_MS}ms ${EASE}`;
+        ptr.style.transform  = `translateY(0)`;
+        ptr.querySelector('.ptr-label').textContent = '更新中…';
+        arc.setAttribute('stroke-dasharray', `${C} 0`);
+        try {
+            await refreshActiveTab();
+        } catch (_) {}
+        await new Promise(r => setTimeout(r, 420));
+        resetPtr();
+        pullY = 0;
+        setTimeout(() => { isRefreshing = false; }, SNAP_MS + 60);
     }, { passive: true });
 }
 
@@ -307,6 +356,25 @@ function updateTabIcons(theme) {
     document.querySelectorAll('.tab-icon-dark').forEach(el => {
         el.style.display = theme === 'dark' ? 'block' : 'none';
     });
+}
+
+/* --------------------------------------------------
+   Toast通知（alert()の代替）
+-------------------------------------------------- */
+function showToast(message, type = 'info') {
+    let el = document.querySelector('.toast-notification');
+    if (el) { clearTimeout(el._hideTimer); el.remove(); }
+    el = document.createElement('div');
+    el.className = `toast-notification toast-${type}`;
+    el.textContent = message;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => el.classList.add('show'));
+    });
+    el._hideTimer = setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => { if (el.parentNode) el.remove(); }, 320);
+    }, 2600);
 }
 
 /**

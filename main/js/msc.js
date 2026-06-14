@@ -298,19 +298,21 @@ function renderMscRadarChart() {
             labels: ['行動力', '探求力', '内省力', '節制力', '生産力', '継続力'],
             datasets: [{
                 data: [data.action, data.curiosity, data.reflection, data.discipline, data.purpose, data.consistency],
-                backgroundColor: 'rgba(255, 100, 50, 0.15)',
+                backgroundColor: 'rgba(255, 100, 50, 0.18)',
                 borderColor: 'rgba(255, 159, 67, 1)',
-                borderWidth: 2,
+                borderWidth: 2.5,
                 pointBackgroundColor: 'rgba(255, 100, 50, 1)',
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
-                pointRadius: 4,
+                pointRadius: 5,
+                pointHoverRadius: 7,
                 fill: true
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            animation: { duration: 800, easing: 'easeOutQuart' },
             scales: {
                 r: {
                     min: 0,
@@ -320,11 +322,19 @@ function renderMscRadarChart() {
                     angleLines: { color: 'rgba(255, 100, 50, 0.2)' },
                     pointLabels: {
                         color: '#ff9966',
-                        font: { family: "'M PLUS Rounded 1c', sans-serif", size: 11, weight: '700' }
+                        font: { family: "'M PLUS Rounded 1c', sans-serif", size: 12, weight: '700' },
+                        padding: 8
                     }
                 }
             },
-            plugins: { legend: { display: false } }
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.label}: ${ctx.raw.toFixed(1)} / 5`
+                    }
+                }
+            }
         }
     });
 }

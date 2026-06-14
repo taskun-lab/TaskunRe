@@ -19,9 +19,12 @@ class SwipeableRow {
         this.actionsRight = element.querySelector('.actions-right');
 
         this.options = {
-            onAction: options.onAction || (() => {}),
-            taskData: options.taskData || null,
-            isCompleted: options.isCompleted || false,
+            onAction:       options.onAction       || (() => {}),
+            taskData:       options.taskData       || null,
+            isCompleted:    options.isCompleted    || false,
+            dataId:         options.dataId         || null,
+            rightFlyAction: options.rightFlyAction || 'complete',
+            leftFlyAction:  options.leftFlyAction  || 'delete',
         };
 
         // 状態
@@ -382,11 +385,11 @@ class SwipeableRow {
         const cardWidth = this.wrap.offsetWidth || screenW;
         const fullSwipeThreshold = cardWidth * 0.5;
         if (dx > fullSwipeThreshold) {
-            this._flyOff(screenW, 'complete');
+            this._flyOff(screenW, this.options.rightFlyAction);
             return;
         }
         if (dx < -fullSwipeThreshold) {
-            this._flyOff(-screenW, 'delete');
+            this._flyOff(-screenW, this.options.leftFlyAction);
             return;
         }
 
@@ -536,18 +539,9 @@ class SwipeableRow {
 
     // === アクション実行 ===
     _executeAction(actionType) {
-        const taskData = this.options.taskData;
-        if (!taskData) return;
-
-        if (actionType === 'complete') {
-            if (this.options.isCompleted) {
-                this.options.onAction('uncomplete', taskData.id);
-            } else {
-                this.options.onAction('complete', taskData.id);
-            }
-        } else if (actionType === 'delete') {
-            this.options.onAction('delete', taskData.id);
-        }
+        const id = this.options.taskData?.id ?? this.options.dataId;
+        if (id == null) return;
+        this.options.onAction(actionType, id);
     }
 
     // === クリック抑制 ===

@@ -1991,3 +1991,212 @@ select {
 .inline-leaf-card.priority-critical > .sl.inline-leaf-sl { background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%); border-left: 3px solid #ff3333; }
 [data-theme='dark'] .inline-leaf-card.priority-critical > .sl.inline-leaf-sl { background: linear-gradient(135deg, #2c2c2e 0%, #3a1515 100%); border-left: 3px solid #ff4444; }
 
+/* =============================================
+   iOS品質UI改善 — 追加スタイル
+   ============================================= */
+
+/* LIFFのネイティブPTRを無効化 */
+body { overscroll-behavior-y: none; }
+
+/* ─── スワイプボタン：アイコン+ラベル縦並び ─── */
+.actions-left button,
+.actions-right button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 64px;
+    padding: 0 8px;
+}
+.swipe-btn-icon {
+    font-size: 18px;
+    line-height: 1;
+    display: block;
+}
+.swipe-btn-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    display: block;
+    white-space: nowrap;
+}
+
+/* ─── スワイプボタン iOS カラー ─── */
+.btn-complete  { background: #34c759 !important; color: #fff !important; }
+.btn-plus2h    { background: #ff9500 !important; color: #fff !important; }
+.btn-detail    { background: #636e72 !important; color: #fff !important; }
+.btn-priority  { background: #5856d6 !important; color: #fff !important; }
+.btn-delete    { background: #ff3b30 !important; color: #fff !important; }
+
+/* タッチ時フィードバック */
+.actions-left button:active,
+.actions-right button:active {
+    opacity: 0.75;
+    transform: scale(0.95);
+    transition: transform 0.08s ease, opacity 0.08s ease;
+}
+
+/* ─── PTR インジケーター（SVGアーク版）─── */
+.pull-refresh-indicator {
+    position: fixed;
+    top: 52px;
+    left: 0; right: 0;
+    transform: translateY(-72px);
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 50;
+    pointer-events: none;
+    opacity: 0;
+    /* overrideする */
+    flex-shrink: unset;
+    overflow: visible;
+    background: transparent;
+}
+.ptr-circle {
+    width: 32px; height: 32px;
+    background: var(--bg-card);
+    border-radius: 50%;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.ptr-svg { display: block; }
+.ptr-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--energy-orange);
+    letter-spacing: 0.03em;
+}
+.ptr-ready .ptr-label { color: #ff6b6b; }
+@keyframes ptrSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+.ptr-refreshing .ptr-svg {
+    animation: ptrSpin 0.9s linear infinite;
+}
+[data-theme="dark"] .ptr-circle { background: #2c2c2e; }
+
+/* ─── Toast通知 ─── */
+.toast-notification {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(13, 27, 42, 0.92);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 22px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.28s ease, transform 0.28s ease;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.toast-notification.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.toast-success { background: rgba(52, 199, 89, 0.92) !important; }
+.toast-error   { background: rgba(255, 59, 48, 0.92) !important; }
+[data-theme="dark"] .toast-notification { background: rgba(44, 44, 46, 0.96); }
+
+/* ─── ジャーナル スワイプラッパー ─── */
+.journal-swipe-wrap {
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+.journal-swipe-wrap .actions-rail {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: stretch;
+    pointer-events: none;
+}
+.journal-swipe-wrap .actions-left,
+.journal-swipe-wrap .actions-right {
+    display: flex;
+    align-items: stretch;
+    width: 0;
+    overflow: hidden;
+    pointer-events: auto;
+}
+.journal-swipe-wrap .actions-left  { justify-content: flex-start; }
+.journal-swipe-wrap .actions-right { justify-content: flex-end; margin-left: auto; }
+
+/* お気に入りボタン */
+.jbtn-fav {
+    background: #ffd60a;
+    color: #000;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 84px;
+    padding: 0 8px;
+    white-space: nowrap;
+}
+.jbtn-fav span { font-size: 10px; font-weight: 700; }
+
+/* 削除ボタン */
+.jbtn-delete {
+    background: #ff3b30;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 84px;
+    padding: 0 8px;
+    white-space: nowrap;
+}
+.jbtn-delete span { font-size: 10px; font-weight: 700; }
+
+/* ジャーナルカード（.sl として使用）*/
+.journal-swipe-wrap .journal-card.sl {
+    position: relative;
+    z-index: 1;
+    will-change: transform;
+    cursor: pointer;
+    display: flex !important;
+}
+
+/* お気に入りバッジ */
+.journal-fav-badge {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    color: #ffd60a;
+    font-size: 14px;
+    line-height: 1;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
+
+/* タッチフィードバック */
+.jbtn-fav:active,
+.jbtn-delete:active {
+    opacity: 0.75;
+    transform: scale(0.95);
+    transition: transform 0.08s ease, opacity 0.08s ease;
+}
+
