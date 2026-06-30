@@ -1781,6 +1781,9 @@ select {
 #treeView {
     overscroll-behavior: none;
     touch-action: none;
+    height: calc(100dvh - 120px);
+    min-height: 400px;
+    background: #06070f;
 }
 #treeContainer, #treeContainer * {
     -webkit-user-select: none !important;

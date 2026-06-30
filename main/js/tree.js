@@ -1,704 +1,603 @@
 /* =============================================
-   ムキムキタスくん - ツリービュー（SVGキャンバス v5）
-   横展開 / コズミックダーク / ノードD&D / エッジ操作 / 位置記憶
+   ムキムキタスくん - 星座ビュー (Canvas)
+   引くと星空・寄ると整理 / パン・ピンチズーム / タップで詳細
    ============================================= */
-
 (function () {
     const btnList       = document.getElementById('btnViewList');
     const btnTree       = document.getElementById('btnViewTree');
     const listView      = document.getElementById('listView');
     const treeView      = document.getElementById('treeView');
     const treeContainer = document.getElementById('treeContainer');
+    const addBar        = document.querySelector('.list-add-bar');
 
     if (!btnList || !btnTree) return;
 
-    // ─── 定数 ────────────────────────────────────
-    const QUEST_R   = 20;
-    const TASK_R    = 13;
-    const V_GAP     = 95;
-    const H_GAP     = 230;
-    const MAX_CHARS = 14;
-    const NS        = 'http://www.w3.org/2000/svg';
-    const DRAG_THR  = 6;
-    const DETECT_R  = 80;
-    const ACTIVATE  = 36;
-
-    const C = {
-        bg       : '#050510',
-        edge     : 'rgba(180,205,255,0.45)',
-        edgeDone : 'rgba(80,90,130,0.22)',
-        quest    : '#ffb347',
-        task     : '#90b4ff',
-        done     : '#4ade80',
-        drop     : '#ff4757',
-        hint     : '#4c5bd4',
-        hintLine : 'rgba(160,185,255,0.55)',
-        label    : '#e8f2ff',
-        muted    : '#50628a',
-        badge    : '#4c5bd4',
-    };
-
-    let pan          = { x: 50, y: 60 };
-    let scale        = 1;
-    let svgEl        = null;
-    let gEl          = null;
-    let hintGroup    = null;
-    let moveMode     = null;
-    let collapsed    = new Set();
-    let lastData     = null;
-    let layoutMapRef = null;
-    let activeHint   = null;
-    let nodeOffsets  = new Map();
-    let rafId        = null;  // requestAnimationFrame handle for transform
-
-    const SS = {
-        savePZ  : () => { try { sessionStorage.setItem('treePZ', JSON.stringify({ x: pan.x, y: pan.y, s: scale })); } catch (_) {} },
-        loadPZ  : () => { try { const d = JSON.parse(sessionStorage.getItem('treePZ') || 'null'); if (d) { pan.x = d.x; pan.y = d.y; scale = d.s; } } catch (_) {} },
-        saveOff : () => { try { sessionStorage.setItem('treeOff', JSON.stringify([...nodeOffsets])); } catch (_) {} },
-        loadOff : () => { try { const d = JSON.parse(sessionStorage.getItem('treeOff') || 'null'); if (d) nodeOffsets = new Map(d); } catch (_) {} },
-    };
-
-    // ─── ビュー切替 ──────────────────────────────
-    btnList.addEventListener('click', () => {
-        exitMoveMode();
-        btnList.classList.add('active'); btnTree.classList.remove('active');
-        listView.style.display = ''; treeView.style.display = 'none';
-        window._treeViewActive = false;
-    });
-
-    btnTree.addEventListener('click', async () => {
-        btnTree.classList.add('active'); btnList.classList.remove('active');
-        listView.style.display = 'none'; treeView.style.display = '';
-        window._treeViewActive = true;
-        await renderTree();
-    });
-
-    // ─── ツリー描画 ──────────────────────────────
-    async function renderTree() {
-        if (!svgEl || !svgEl.isConnected) {
-            treeContainer.innerHTML = '';
-            initSvg();
-            SS.loadPZ(); SS.loadOff();
-        }
-        try {
-            const data = await apiCall(`/tasks/tree?user_id=${encodeURIComponent(userId)}`);
-            lastData = data;
-            if (!data || data.length === 0) {
-                gEl.innerHTML = ''; hintGroup = null;
-                const t = svgEl_('text', { x: '50%', y: '50%', 'text-anchor': 'middle',
-                    'dominant-baseline': 'middle', fill: C.muted, 'font-size': 14 });
-                t.textContent = 'タスクがありません';
-                gEl.appendChild(t); return;
-            }
-            redraw(data);
-        } catch (e) {
-            if (gEl) gEl.innerHTML = '';
-            hintGroup = null;
-        }
-    }
-
-    function redraw(data) {
-        if (!gEl) return;
-        gEl.innerHTML = ''; hintGroup = null; activeHint = null;
-
-        const layout = computeLayout(data);
-        layout.forEach(item => {
-            const off = nodeOffsets.get(item.node.id);
-            if (off) { item.x += off.dx; item.y += off.dy; }
-        });
-        layoutMapRef = new Map(layout.map(i => [i.node.id, i]));
-
-        const eg = svgNS('g'); const ng = svgNS('g'); const hg = svgNS('g');
-        hintGroup = hg;
-        gEl.appendChild(eg); gEl.appendChild(ng); gEl.appendChild(hg);
-
-        layout.forEach(({ node, x, y }) => {
-            if (!collapsed.has(node.id)) {
-                (node.children || []).forEach(child => {
-                    const ci = layoutMapRef.get(child.id);
-                    if (ci) drawEdge(eg, x, y, ci.x, ci.y, node, child);
-                });
-            }
-            drawNode(ng, node, x, y);
-        });
-        applyTransform();
-    }
-
-    // ─── SVG 初期化 ──────────────────────────────
-    function initSvg() {
-        treeContainer.style.cssText =
-            'overflow:hidden;position:relative;overscroll-behavior:none;touch-action:none;';
-        treeContainer.style.height = `${window.innerHeight - 140}px`;
-
-        svgEl = svgNS('svg');
-        svgEl.setAttribute('width', '100%');
-        svgEl.setAttribute('height', '100%');
-        svgEl.style.cssText =
-            `display:block;touch-action:none;cursor:grab;background:${C.bg};` +
-            '-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;';
-
-        const defs = svgNS('defs');
-        addGlow(defs, 'gq', 12); addGlow(defs, 'gt', 7);
-        addGlow(defs, 'gd', 6);  addGlow(defs, 'gdr', 14); addGlow(defs, 'gh', 8);
-        svgEl.appendChild(defs);
-
-        // 固定星空背景（パンに追従しない）
-        const starLayer = svgNS('g');
-        addStarField(starLayer);
-        svgEl.appendChild(starLayer);
-
-        gEl = svgNS('g');
-        // CSS transform で GPU 合成レイヤーに昇格 → ズームぶれ軽減
-        gEl.style.willChange = 'transform';
-        gEl.style.transformOrigin = '0 0';
-        svgEl.appendChild(gEl);
-        treeContainer.appendChild(svgEl);
-
-        setupPanZoom(svgEl);
-
-        svgEl.addEventListener('click', e => {
-            if (e.target === svgEl || e.target === gEl) {
-                document.getElementById('tree-detail-overlay')?.remove();
-                document.getElementById('tree-edge-menu')?.remove();
-            }
-        });
-    }
-
-    function addGlow(defs, id, blur) {
-        const f = svgNS('filter');
-        f.setAttribute('id', id);
-        f.setAttribute('x', '-100%'); f.setAttribute('y', '-100%');
-        f.setAttribute('width', '300%'); f.setAttribute('height', '300%');
-        const fe = svgNS('feGaussianBlur');
-        fe.setAttribute('in', 'SourceGraphic'); fe.setAttribute('stdDeviation', blur); fe.setAttribute('result', 'blur');
-        const fm = svgNS('feMerge');
-        const n1 = svgNS('feMergeNode'); n1.setAttribute('in', 'blur');
-        const n2 = svgNS('feMergeNode'); n2.setAttribute('in', 'SourceGraphic');
-        fm.appendChild(n1); fm.appendChild(n2);
-        f.appendChild(fe); f.appendChild(fm);
-        defs.appendChild(f);
-    }
-
-    function addStarField(parent) {
-        const g = svgNS('g');
-        g.setAttribute('pointer-events', 'none');
-        let seed = 0xBEEF1337;
-        const rnd = () => {
-            seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
-            return (seed >>> 0) / 0xFFFFFFFF;
-        };
-        for (let i = 0; i < 200; i++) {
-            const c = svgNS('circle');
-            c.setAttribute('cx', `${rnd() * 100}%`);
-            c.setAttribute('cy', `${rnd() * 100}%`);
-            c.setAttribute('r', String(0.15 + rnd() * 1.3));
-            c.setAttribute('fill', `rgba(210,228,255,${(0.1 + rnd() * 0.65).toFixed(2)})`);
-            g.appendChild(c);
-        }
-        parent.appendChild(g);
-    }
-
-    // ─── レイアウト計算 ────────────────────────────
-    function _idHash(id) {
-        const s = String(id);
-        let h = 0x811c9dc5;
+    /* -------- ハッシュ/乱数 -------- */
+    const hash = (s) => {
+        let h = 0x811c9dc5; s = String(s);
         for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
         return h;
-    }
-    function _stagger(id, scale = 1) {
-        const h = _idHash(id);
-        return (((h & 0xFF) - 128) / 128) * 44 * scale;
-    }
+    };
+    const rnd  = (s) => (hash(s) >>> 0) / 0xFFFFFFFF;
+    const rndS = (s) => rnd(s) * 2 - 1;
 
-    function computeLayout(nodes) {
-        const all = [];
-        let leaf = 0;
-        function visit(node, depth, parentId) {
-            const kids = collapsed.has(node.id) ? [] : (node.children || []);
-            const info = { node, depth, x: depth * H_GAP, y: 0, parentId };
-            all.push(info);
-            if (kids.length === 0) {
-                info.y = leaf++ * V_GAP + _stagger(node.id);
-            } else {
-                const s = leaf;
-                kids.forEach(c => visit(c, depth + 1, node.id));
-                info.y = ((s + leaf - 1) * V_GAP) / 2 + _stagger(node.id, 0.4);
-            }
-        }
-        nodes.forEach(n => visit(n, 0, null));
-        return all;
+    /* -------- キャンバス & サイズ -------- */
+    let cv = null, ctx = null, W = 0, H = 0, DPR = 1;
+    let animId = null;
+
+    function initCanvas() {
+        treeView.style.position = 'relative';
+        treeView.style.overflow = 'hidden';
+        treeView.style.background = '#06070f';
+        cv = document.createElement('canvas');
+        cv.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;';
+        treeContainer.style.cssText = 'position:absolute;inset:0;';
+        treeContainer.appendChild(cv);
+        ctx = cv.getContext('2d');
     }
 
-    // ─── ノード描画（星座スタイル）───────────────────
-    function drawNode(parent, node, x, y) {
-        const isDone  = node.complete_at === 1;
-        const isQuest = node.task_type === 'mission';
-        const isDrop  = moveMode && !isDone && node.id !== moveMode.taskId;
-        const R    = isQuest ? QUEST_R : TASK_R;
-        const fill = isDone ? C.done : isDrop ? C.drop : isQuest ? C.quest : C.task;
-        const gid  = isDone ? 'gd'   : isDrop ? 'gdr'  : isQuest ? 'gq'   : 'gt';
+    function resize() {
+        W = treeView.clientWidth  || window.innerWidth;
+        H = treeView.clientHeight || window.innerHeight;
+        if (W < 10) { W = window.innerWidth; H = window.innerHeight; }
+        DPR = Math.min(2.5, window.devicePixelRatio || 1);
+        cv.width  = W * DPR;
+        cv.height = H * DPR;
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        makeStars();
+    }
 
-        const g = svgNS('g');
-        g.style.cursor = 'grab';
+    /* -------- パレット -------- */
+    const PAL = {
+        space0:'#04050d', space1:'#0b0d22',
+        star  :'210,224,255',
+        line  :'rgba(150,175,255,0.11)', lineDone:'rgba(255,212,150,0.13)',
+        quest :'255,210,138', task:'188,212,255',
+        done  :'255,232,170', idle:'130,142,190', core:'255,243,214',
+        label :'#e9eeff', labelDim:'rgba(190,201,236,0.62)',
+    };
 
-        // 外側ソフトグロー（光冠）
-        g.appendChild(svgEl_('circle', {
-            cx: x, cy: y, r: R * 2.6,
-            fill: 'none', stroke: fill,
-            'stroke-width': R * 1.4, 'stroke-opacity': '0.1',
-            filter: 'url(#gq)', 'pointer-events': 'none',
-        }));
-
-        // メイン星体（グロウフィルター付き）
-        g.appendChild(svgEl_('circle', {
-            cx: x, cy: y, r: R, fill,
-            filter: `url(#${gid})`,
-            stroke: 'rgba(255,255,255,0.5)', 'stroke-width': 0.8,
-        }));
-
-        // 中央ハイライト（星の輝き点）
-        g.appendChild(svgEl_('circle', {
-            cx: x - R * 0.28, cy: y - R * 0.28, r: R * 0.35,
-            fill: 'rgba(255,255,255,0.72)', 'pointer-events': 'none',
-        }));
-
-        // クエストバッジ
-        if (isQuest && !isDone) {
-            const badge = svgEl_('text', {
-                x, y: y + R + 12, 'text-anchor': 'middle',
-                'font-size': 8, fill: C.quest, 'pointer-events': 'none',
-                'font-weight': 700, 'letter-spacing': '1',
+    /* -------- 背景星 -------- */
+    let bgStars = [];
+    function makeStars() {
+        bgStars = [];
+        for (let i = 0; i < 160; i++) {
+            bgStars.push({
+                x : rnd('x'+i) * W, y : rnd('y'+i) * H,
+                r : 0.3 + rnd('r'+i) * 1.5,
+                a : 0.15 + rnd('a'+i) * 0.7,
+                ph: rnd('p'+i) * 6.28,
+                sp: 0.4  + rnd('s'+i) * 1.4,
             });
-            badge.textContent = 'QUEST';
-            g.appendChild(badge);
         }
-
-        // ラベル
-        const te = svgEl_('text', {
-            x: x + R + 7, y,
-            'dominant-baseline': 'middle',
-            'font-size': isQuest ? 13 : 11,
-            'font-weight': isQuest ? 700 : 400,
-            fill: isDone ? C.muted : C.label, 'pointer-events': 'none',
-        });
-        te.textContent = truncate(node.task_name || '(無題)', MAX_CHARS);
-        if (isDone) te.setAttribute('text-decoration', 'line-through');
-        g.appendChild(te);
-
-        // 完了日
-        if (isDone && node.completed_at) {
-            const de = svgEl_('text', {
-                x: x + R + 7, y: y + 10,
-                'dominant-baseline': 'middle',
-                'font-size': 9, fill: C.muted, 'pointer-events': 'none',
-            });
-            de.textContent = fmtDate(node.completed_at);
-            g.appendChild(de);
-        }
-
-        // D&D
-        let tapOk = true, dragging = false, pressed = false, startPx = 0, startPy = 0;
-
-        g.addEventListener('pointerdown', e => {
-            e.stopPropagation();
-            pressed = true; tapOk = true; dragging = false;
-            startPx = e.clientX; startPy = e.clientY;
-            g.setPointerCapture(e.pointerId);
-        });
-
-        g.addEventListener('pointermove', e => {
-            if (!pressed) return;
-            const sdx = (e.clientX - startPx), sdy = (e.clientY - startPy);
-            if (!dragging && Math.hypot(sdx, sdy) > DRAG_THR) { dragging = true; tapOk = false; }
-            if (!dragging) return;
-            g.style.cursor = 'grabbing';
-            g.setAttribute('transform', `translate(${sdx / scale},${sdy / scale})`);
-            updateHints(node.id, x + sdx / scale, y + sdy / scale);
-        });
-
-        g.addEventListener('pointerup', async e => {
-            pressed = false;
-            if (dragging) {
-                const sdx = (e.clientX - startPx) / scale;
-                const sdy = (e.clientY - startPy) / scale;
-                dragging = false; g.style.cursor = 'grab';
-                g.removeAttribute('transform');
-                const hint = activeHint; clearHints();
-                if (hint) {
-                    await reparentNode(node.id, hint.targetId);
-                } else {
-                    const cur = nodeOffsets.get(node.id) || { dx: 0, dy: 0 };
-                    nodeOffsets.set(node.id, { dx: cur.dx + sdx, dy: cur.dy + sdy });
-                    SS.saveOff();
-                    if (lastData) redraw(lastData);
-                }
-                return;
-            }
-            if (!tapOk) return;
-            if (moveMode) {
-                if (!isDone && node.id !== moveMode.taskId) doReparent(moveMode.taskId, node.id);
-                return;
-            }
-            showDetail(node);
-        });
-
-        g.addEventListener('pointercancel', () => {
-            pressed = false; dragging = false;
-            g.removeAttribute('transform'); clearHints();
-        });
-
-        parent.appendChild(g);
     }
 
-    // ─── エッジ（星座線スタイル）────────────────────
-    function drawEdge(parent, px, py, cx, cy, pNode, cNode) {
-        const R1 = pNode.task_type === 'mission' ? QUEST_R : TASK_R;
-        const R2 = cNode.task_type === 'mission' ? QUEST_R : TASK_R;
-        const bothDone = pNode.complete_at === 1 && cNode.complete_at === 1;
+    /* -------- ノード/エッジ -------- */
+    let nodes = [], edges = [];
 
-        // 円端から円端への方向ベクトル
-        const dx = cx - px, dy = cy - py;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const nx = dx / dist, ny = dy / dist;
-        const x1 = px + nx * (R1 + 2), y1 = py + ny * (R1 + 2);
-        const x2 = cx - nx * (R2 + 2), y2 = cy - ny * (R2 + 2);
-
-        // 視覚エッジ（星座線）
-        parent.appendChild(svgEl_('line', {
-            x1, y1, x2, y2,
-            stroke: bothDone ? C.edgeDone : C.edge,
-            'stroke-width': bothDone ? 0.8 : 1.2,
-            'stroke-opacity': bothDone ? '0.22' : '0.55',
-            'pointer-events': 'none',
-        }));
-
-        // 広いヒット領域（透明・クリック可能）
-        const hit = svgEl_('line', {
-            x1, y1, x2, y2,
-            stroke: 'transparent', 'stroke-width': 14, cursor: 'pointer',
-        });
-        hit.addEventListener('click', e => {
-            e.stopPropagation();
-            showEdgeMenu(e.clientX, e.clientY, pNode, cNode);
-        });
-        parent.appendChild(hit);
-    }
-
-    // ─── エッジメニュー ───────────────────────────
-    function showEdgeMenu(screenX, screenY, pNode, cNode) {
-        document.getElementById('tree-edge-menu')?.remove();
-        const menu = document.createElement('div');
-        menu.id = 'tree-edge-menu';
-        menu.style.cssText =
-            `position:fixed;left:${screenX + 8}px;top:${screenY - 8}px;z-index:300;` +
-            'background:#0d0d2b;border:1px solid rgba(100,120,255,0.3);border-radius:10px;' +
-            'padding:4px;box-shadow:0 4px 24px rgba(0,0,0,0.5);min-width:140px;';
-        menu.innerHTML = `
-            <button class="edge-menu-btn" data-act="disconnect">🔗 接続解除</button>`;
-
-        menu.querySelectorAll('.edge-menu-btn').forEach(btn => {
-            btn.addEventListener('click', async e => {
-                e.stopPropagation(); menu.remove();
-                if (btn.dataset.act === 'disconnect') {
-                    await reparentNode(cNode.id, null);
-                } else {
-                    collapsed.add(cNode.id);
-                    if (lastData) redraw(lastData);
-                }
-            });
-        });
-
-        document.body.appendChild(menu);
-        const closeMenu = e => {
-            if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', closeMenu); }
+    function buildGraph(data) {
+        nodes = []; edges = [];
+        const root = {
+            id:'root', name:'リスト', type:'core', children:[],
+            level:0, wx:0, wy:0, done:false, state:'progress',
+            _total:0, _done:0, progress:0, _ph:0, _amp:2, _sp:0.2,
         };
-        setTimeout(() => document.addEventListener('click', closeMenu), 0);
-    }
 
-    // ─── D&D ヒント ──────────────────────────────
-    function updateHints(draggedId, cx, cy) {
-        if (!hintGroup) return;
-        hintGroup.innerHTML = ''; activeHint = null;
-
-        let nearest = null, nearestDist = DETECT_R;
-        layoutMapRef?.forEach((item, id) => {
-            if (id === draggedId) return;
-            const d = Math.hypot(cx - item.x, cy - item.y);
-            if (d < nearestDist) { nearestDist = d; nearest = item; }
-        });
-        if (!nearest) return;
-
-        const { node: tgt, x: tx, y: ty } = nearest;
-        const childHX = tx + H_GAP * 0.48, childHY = ty;
-        const toChild = Math.hypot(cx - childHX, cy - childHY);
-        const active  = toChild < ACTIVATE;
-
-        hintGroup.appendChild(svgEl_('line', {
-            x1: tx, y1: ty, x2: cx, y2: cy,
-            stroke: C.hintLine, 'stroke-width': 1.5, 'stroke-dasharray': '5,4', 'pointer-events': 'none',
-        }));
-
-        const r = active ? 15 : 11;
-        hintGroup.appendChild(svgEl_('circle', {
-            cx: childHX, cy: childHY, r, fill: active ? C.hint : 'rgba(76,91,212,0.45)',
-            stroke: active ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.15)',
-            'stroke-width': active ? 2 : 1,
-            ...(active ? { filter: 'url(#gh)' } : {}), 'pointer-events': 'none',
-        }));
-        const lt = svgEl_('text', { x: childHX, y: childHY + 1, 'text-anchor': 'middle',
-            'dominant-baseline': 'middle', 'font-size': active ? 18 : 14,
-            fill: 'white', 'font-weight': 700, 'pointer-events': 'none' });
-        lt.textContent = '+';
-        hintGroup.appendChild(lt);
-        if (active) {
-            const lab = svgEl_('text', { x: childHX + r + 4, y: childHY,
-                'dominant-baseline': 'middle', 'font-size': 10, fill: '#8090d0', 'pointer-events': 'none' });
-            lab.textContent = '子へ';
-            hintGroup.appendChild(lab);
-            activeHint = { targetId: tgt.id };
-        }
-    }
-
-    function clearHints() { if (hintGroup) hintGroup.innerHTML = ''; activeHint = null; }
-
-    // ─── reparentNode ──────────────────────────
-    async function reparentNode(taskId, newParentId) {
-        nodeOffsets.delete(taskId); SS.saveOff();
-        try {
-            await apiCall('/tasks/action', 'POST', {
-                user_id: userId, action: 'reparent',
-                task_id: taskId, parent_task_id: newParentId ?? null,
-            });
-            await renderTree(); loadList();
-        } catch (e) {
-            const msg = String(e?.message || e?.error || e);
-            if (msg.includes('MAX_DEPTH') || msg.includes('depth') || msg.includes('5')) {
-                showToast('⚠ 5階層を超えるため移動できません');
-            } else {
-                showToast('⚠ 接続に失敗しました');
-            }
-            if (lastData) redraw(lastData);
-        }
-    }
-
-    // ─── トースト通知 ──────────────────────────
-    function showToast(msg) {
-        document.querySelectorAll('.tree-toast').forEach(t => t.remove());
-        const t = document.createElement('div');
-        t.className = 'tree-toast';
-        t.textContent = msg;
-        treeView.appendChild(t);
-        requestAnimationFrame(() => t.classList.add('visible'));
-        setTimeout(() => { t.classList.remove('visible'); setTimeout(() => t.remove(), 300); }, 2800);
-    }
-
-    // ─── 詳細ボトムシート ──────────────────────────
-    function showDetail(node) {
-        document.getElementById('tree-detail-overlay')?.remove();
-        const isDone = node.complete_at === 1;
-        const kids   = node.children || [];
-        const depth  = node.depth ?? 0;
-        // 子孫全体の数を再帰カウント
-        function countDesc(n) {
-            const ch = n.children || [];
-            let total = ch.length, done = ch.filter(c => c.complete_at === 1).length;
-            for (const c of ch) { const s = countDesc(c); total += s.total; done += s.done; }
-            return { total, done };
-        }
-        const { total: descTotal, done: descDone } = countDesc(node);
-
-        const ov = document.createElement('div');
-        ov.id = 'tree-detail-overlay';
-        let html = `
-        <div class="tree-overlay-handle"></div>
-        <div class="tree-overlay-header">
-            <span class="tree-overlay-title">${escapeHtml(node.task_name || '(無題)')}</span>
-            <button class="tree-overlay-close">×</button>
-        </div>
-        <div class="tree-overlay-body">`;
-
-        if (isDone) {
-            html += `<span class="tree-detail-badge done">✓ 達成済み</span>`;
-            if (node.completed_at) html += `<div class="tree-detail-row">📅 <b>完了日</b> ${fmtDate(node.completed_at)}</div>`;
-        } else if (descTotal > 0) {
-            const pct = Math.round(descDone / descTotal * 100);
-            html += `<div class="tree-detail-row">📊 <b>進捗</b> ${descDone}/${descTotal} (${pct}%)</div>
-                     <div class="tree-progress-bar"><div class="tree-progress-fill" style="width:${pct}%"></div></div>`;
-        }
-        if (node.reason)      html += `<div class="tree-detail-row">💡 ${escapeHtml(node.reason)}</div>`;
-        if (node.target_date) html += `<div class="tree-detail-row">🗓 <b>目標日</b> ${node.target_date}</div>`;
-        if (node.journal_id)  html += `<button class="tree-journal-btn" data-jid="${escapeHtml(node.journal_id)}">📝 ジャーナルを見る</button>`;
-        if (!isDone && depth < 4) {
-            html += `<div class="tree-add-sub-row">
-                <input type="text" class="form-input tree-add-sub-input"
-                    placeholder="サブタスクを追加…"
-                    style="flex:1;margin:0;background:#131330;color:#d8e4ff;border-color:#2a2a6a;" />
-                <button class="tree-add-sub-btn">＋</button>
-            </div>`;
-        }
-        html += '</div>';
-        ov.innerHTML = html;
-
-        ov.querySelector('.tree-overlay-close').addEventListener('click', () => ov.remove());
-        ov.querySelector('.tree-journal-btn')?.addEventListener('click', e => {
-            openJournalEntry(e.currentTarget.dataset.jid); ov.remove();
-        });
-        const inp = ov.querySelector('.tree-add-sub-input');
-        const btn = ov.querySelector('.tree-add-sub-btn');
-        if (inp && btn) {
-            const doAdd = async () => {
-                const name = inp.value.trim(); if (!name) return;
-                inp.value = ''; btn.disabled = true;
-                try {
-                    await apiCall('/tasks/action', 'POST', {
-                        user_id: userId, action: 'add_subtask',
-                        task_name: name, parent_task_id: node.id,
-                    });
-                    ov.remove(); await renderTree(); loadList();
-                } catch (err) { console.error(err); }
-                finally { btn.disabled = false; }
+        function conv(api, parent, level) {
+            const isQ    = api.task_type === 'mission';
+            const isDone = api.complete_at === 1;
+            const n = {
+                id      : String(api.id),
+                name    : api.task_name || '(無題)',
+                type    : isQ ? 'quest' : 'task',
+                done    : isDone,
+                state   : isDone ? 'done' : 'idle',
+                children: [],
+                parent  : parent,
+                level   : level,
+                _apiData: api,
+                _total:1, _done: isDone ? 1 : 0, progress: isDone ? 1 : 0,
             };
-            btn.addEventListener('click', doAdd);
-            inp.addEventListener('keydown', e => { if (e.key === 'Enter') doAdd(); });
-        }
-        treeView.appendChild(ov);
-        requestAnimationFrame(() => ov.classList.add('open'));
-    }
-
-    // ─── 移動モード ───────────────────────────────
-    function showMoveBanner(taskName) {
-        document.getElementById('tree-move-banner')?.remove();
-        const b = document.createElement('div');
-        b.id = 'tree-move-banner';
-        b.innerHTML = `<span>「${escapeHtml(taskName)}」をどのノードに移動？</span><button id="tree-move-cancel">×</button>`;
-        treeView.insertBefore(b, treeContainer);
-        document.getElementById('tree-move-cancel').addEventListener('click', exitMoveMode);
-    }
-
-    function exitMoveMode() {
-        moveMode = null;
-        document.getElementById('tree-move-banner')?.remove();
-        document.querySelectorAll('.card-lifted').forEach(c => c.classList.remove('card-lifted'));
-        if (lastData) redraw(lastData);
-    }
-
-    async function doReparent(taskId, newParentId) {
-        exitMoveMode();
-        try {
-            await apiCall('/tasks/action', 'POST', {
-                user_id: userId, action: 'reparent',
-                task_id: taskId, parent_task_id: newParentId,
-            });
-            await renderTree(); loadList();
-        } catch (e) {
-            const msg = String(e?.message || e);
-            if (msg.includes('MAX_DEPTH')) showToast('⚠ 5階層を超えるため移動できません');
-            else alert('移動に失敗しました');
-        }
-    }
-
-    // ─── パン・ズーム ─────────────────────────────
-    // rAF でバッチ処理 → ズームぶれ軽減（MindMeister方式と同様）
-    function applyTransform() {
-        cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-            if (!gEl) return;
-            // CSS transform（GPU合成）で適用
-            gEl.style.transform = `translate(${pan.x}px,${pan.y}px) scale(${scale})`;
-        });
-    }
-
-    function setupPanZoom(svg) {
-        let panning = false, ox = 0, oy = 0, lastTouches = null;
-
-        svg.addEventListener('touchstart', e => { e.stopPropagation(); lastTouches = Array.from(e.touches); }, { passive: true });
-
-        svg.addEventListener('touchmove', e => {
-            e.preventDefault(); e.stopPropagation();
-            if (e.touches.length === 2 && lastTouches?.length === 2) {
-                const [t1, t2] = [e.touches[0], e.touches[1]];
-                const nd = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-                const od = Math.hypot(lastTouches[0].clientX - lastTouches[1].clientX,
-                                      lastTouches[0].clientY - lastTouches[1].clientY);
-                const ns = Math.min(3, Math.max(0.2, scale * (nd / od)));
-                const r  = svg.getBoundingClientRect();
-                const mx = (t1.clientX + t2.clientX) / 2 - r.left;
-                const my = (t1.clientY + t2.clientY) / 2 - r.top;
-                pan.x = mx - (mx - pan.x) * (ns / scale);
-                pan.y = my - (my - pan.y) * (ns / scale);
-                scale = ns; applyTransform(); SS.savePZ();
+            if (api.children && api.children.length) {
+                api.children.forEach(c => n.children.push(conv(c, n, level + 1)));
+                const tot = api.children.length;
+                const dn  = api.children.filter(c => c.complete_at === 1).length;
+                n._total = tot; n._done = dn;
+                n.progress = tot ? dn / tot : 0;
+                if (!isDone) n.state = dn > 0 ? 'progress' : 'idle';
             }
-            lastTouches = Array.from(e.touches);
-        }, { passive: false });
+            nodes.push(n);
+            if (parent) edges.push({ a:parent, b:n });
+            return n;
+        }
 
-        svg.addEventListener('touchend',    () => { lastTouches = null; });
-        svg.addEventListener('touchcancel', () => { lastTouches = null; });
+        data.forEach(api => root.children.push(conv(api, root, 1)));
+        root._total = nodes.filter(n => !n.children.length).length;
+        root._done  = nodes.filter(n => !n.children.length && n.done).length;
+        nodes.push(root);
 
-        svg.addEventListener('pointerdown', e => {
-            if (e.target !== svg && e.target !== gEl) return;
-            panning = true;
-            ox = e.clientX - pan.x; oy = e.clientY - pan.y;
-            svg.style.cursor = 'grabbing';
-            svg.setPointerCapture(e.pointerId);
+        /* 有機放射状レイアウト */
+        function place(node, baseAng) {
+            const kids = node.children, n = kids.length;
+            if (!n) return;
+            const isCore = node.type === 'core';
+            const spread = isCore ? Math.PI * 2 : Math.min(Math.PI * 1.1, 0.7 + n * 0.34);
+            const baseR  = isCore ? 230 : Math.max(110, 190 - node.level * 18);
+            kids.forEach((k, i) => {
+                let ang;
+                if (isCore) {
+                    ang = (i / n) * Math.PI * 2 + rndS(k.id) * 0.22 - Math.PI / 2;
+                } else {
+                    const t = n === 1 ? 0 : (i / (n - 1) - 0.5);
+                    ang = baseAng + t * spread + rndS(k.id) * 0.28;
+                }
+                const r = baseR * (0.82 + rnd(k.id + 'r') * 0.42);
+                k.wx = node.wx + Math.cos(ang) * r;
+                k.wy = node.wy + Math.sin(ang) * r;
+                k._ph  = rnd(k.id + 'p') * Math.PI * 2;
+                k._amp = 3 + rnd(k.id + 'a') * 5;
+                k._sp  = 0.25 + rnd(k.id + 's') * 0.35;
+                place(k, ang);
+            });
+        }
+        place(root, 0);
+        fitCamera();
+    }
+
+    /* -------- カメラ -------- */
+    const cam = { x:0, y:0, zoom:0.4, vx:0, vy:0 };
+    let zoomTarget = 0.4, fitting = false, fitTo = null;
+    let dragging = false, zooming = false, anchor = null;
+
+    function getFitBox() {
+        if (!nodes.length) return { cx:0, cy:0, z:0.4 };
+        let x0=1e9, y0=1e9, x1=-1e9, y1=-1e9;
+        nodes.forEach(n => { x0=Math.min(x0,n.wx); y0=Math.min(y0,n.wy); x1=Math.max(x1,n.wx); y1=Math.max(y1,n.wy); });
+        const cx=(x0+x1)/2, cy=(y0+y1)/2;
+        const z = Math.min((W-80)/(x1-x0+1), (H-200)/(y1-y0+1));
+        return { cx, cy, z: Math.max(0.28, Math.min(0.7, z)) };
+    }
+    function fitCamera() {
+        const fb = getFitBox();
+        fitting = true; fitTo = fb;
+        cam.x = fb.cx; cam.y = fb.cy;
+    }
+    function setZoom(nz, sx, sy) {
+        nz = Math.max(0.22, Math.min(2.5, nz));
+        const wx = cam.x + (sx - W/2) / cam.zoom;
+        const wy = cam.y + (sy - H/2) / cam.zoom;
+        zoomTarget = nz; anchor = { wx, wy, sx, sy };
+        zooming = true; fitting = false;
+    }
+    function proj(n, t) {
+        const dx = Math.sin(t*(n._sp||0.3) + (n._ph||0)) * (n._amp||0);
+        const dy = Math.cos(t*(n._sp||0.3)*0.8 + (n._ph||0)) * (n._amp||0) * 0.7;
+        return [W/2 + (n.wx+dx - cam.x)*cam.zoom, H/2 + (n.wy+dy - cam.y)*cam.zoom];
+    }
+
+    /* -------- 描画ヘルパー -------- */
+    function glow(x, y, r, rgb, a) {
+        const g = ctx.createRadialGradient(x,y,0, x,y,r);
+        g.addColorStop(0, 'rgba('+rgb+','+a+')');
+        g.addColorStop(0.4, 'rgba('+rgb+','+(a*0.45)+')');
+        g.addColorStop(1, 'rgba('+rgb+',0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+    }
+
+    function drawStar(x, y, baseR, rgb, bright, tw, isCore, isDone, isIdle) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        glow(x, y, baseR*4.8, rgb, (isDone ? 0.5 : 0.32)*bright);
+
+        if (!isIdle) {
+            const mul   = isCore ? 5.4 : isDone ? 4.6 : 3.2;
+            const spLen = baseR * mul * (0.6 + 0.5*tw) * Math.max(0.55, bright);
+            const spA   = (isCore ? 0.95 : isDone ? 0.85 : 0.58) * (0.5+0.5*tw) * bright;
+            const spike = (ang, len, w) => {
+                const ex = x+Math.cos(ang)*len, ey = y+Math.sin(ang)*len;
+                const g = ctx.createLinearGradient(x,y,ex,ey);
+                g.addColorStop(0, 'rgba(255,255,255,'+spA+')');
+                g.addColorStop(0.28, 'rgba('+rgb+','+(spA*0.7)+')');
+                g.addColorStop(1, 'rgba('+rgb+',0)');
+                ctx.strokeStyle=g; ctx.lineWidth=w; ctx.lineCap='round';
+                ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(ex,ey); ctx.stroke();
+            };
+            spike(0,spLen,1.4); spike(1.5708,spLen,1.4); spike(3.1416,spLen,1.4); spike(4.7124,spLen,1.4);
+            const dl = spLen*0.42;
+            spike(0.785,dl,0.8); spike(2.356,dl,0.8); spike(3.927,dl,0.8); spike(5.498,dl,0.8);
+        } else {
+            const spLen = baseR * 1.1 * (0.6+0.4*tw);
+            const spA   = 0.3 * (0.55+0.45*tw);
+            for (const ang of [0,1.5708,3.1416,4.7124]) {
+                ctx.strokeStyle='rgba('+rgb+','+spA+')'; ctx.lineWidth=1.2; ctx.lineCap='round';
+                ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(ang)*spLen, y+Math.sin(ang)*spLen); ctx.stroke();
+            }
+        }
+
+        const cr = Math.max(1, baseR * (isIdle ? 0.78 : 1));
+        const cg = ctx.createRadialGradient(x,y,0, x,y,cr);
+        cg.addColorStop(0, 'rgba(255,255,255,1)');
+        cg.addColorStop(0.55, 'rgba('+rgb+',1)');
+        cg.addColorStop(1, 'rgba('+rgb+',0)');
+        ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(x,y,cr,0,6.2832); ctx.fill();
+        ctx.restore();
+    }
+
+    /* -------- アニメーションループ -------- */
+    let lastT = performance.now();
+    function draw(now) {
+        animId = requestAnimationFrame(draw);
+        const t  = now / 1000;
+        const dt = Math.min(2.5, (now - lastT) / 16.67);
+        lastT = now;
+
+        /* カメラ更新 */
+        if (fitting && fitTo) {
+            cam.zoom += (fitTo.z - cam.zoom) * 0.1 * dt;
+            cam.x    += (fitTo.cx - cam.x)   * 0.1 * dt;
+            cam.y    += (fitTo.cy - cam.y)    * 0.1 * dt;
+            if (Math.abs(cam.zoom - fitTo.z) < 0.003) fitting = false;
+        } else if (zooming && anchor) {
+            cam.zoom += (zoomTarget - cam.zoom) * 0.3 * dt;
+            cam.x = anchor.wx - (anchor.sx - W/2) / cam.zoom;
+            cam.y = anchor.wy - (anchor.sy - H/2) / cam.zoom;
+            if (Math.abs(cam.zoom - zoomTarget) < 0.002) zooming = false;
+        } else if (!dragging) {
+            cam.x += cam.vx * dt; cam.y += cam.vy * dt;
+            cam.vx *= Math.pow(0.88, dt); cam.vy *= Math.pow(0.88, dt);
+        }
+
+        const zoom    = cam.zoom;
+        const labelOp = Math.max(0, Math.min(1, (zoom - 0.52) / 0.24));
+        const skyOp   = Math.max(0, Math.min(1, (0.48 - zoom) / 0.18));
+
+        /* 背景グラデーション */
+        const bg = ctx.createLinearGradient(0,0,0,H);
+        bg.addColorStop(0, PAL.space1); bg.addColorStop(1, PAL.space0);
+        ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+        /* ネビュラ */
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        glow(W*0.28 - cam.x*0.02, H*0.34 - cam.y*0.02, 220, '90,60,170', 0.10);
+        glow(W*0.72 - cam.x*0.02, H*0.62 - cam.y*0.02, 200, '40,90,150', 0.08);
+        ctx.restore();
+
+        /* 背景星 */
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        bgStars.forEach(s => {
+            const fl = 0.45 + 0.55 * Math.sin(t * s.sp + s.ph);
+            if (s.r > 1) glow(s.x, s.y, s.r*4.5, PAL.star, s.a*fl*0.5);
+            ctx.fillStyle = 'rgba('+PAL.star+','+Math.min(1, s.a*fl*1.3)+')';
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.2832); ctx.fill();
         });
-        svg.addEventListener('pointermove', e => {
-            if (!panning) return;
-            pan.x = e.clientX - ox; pan.y = e.clientY - oy;
-            applyTransform();
+        ctx.restore();
+
+        if (!nodes.length) return;
+
+        const sp = new Map();
+        nodes.forEach(n => sp.set(n.id, proj(n, t)));
+
+        /* エッジ */
+        ctx.save();
+        edges.forEach(e => {
+            const pa = sp.get(e.a.id), pb = sp.get(e.b.id);
+            if (!pa || !pb) return;
+            ctx.strokeStyle = e.b.done ? PAL.lineDone : PAL.line;
+            ctx.lineWidth   = e.b.done ? 1.1 : 0.9;
+            ctx.beginPath(); ctx.moveTo(pa[0],pa[1]); ctx.lineTo(pb[0],pb[1]); ctx.stroke();
         });
-        svg.addEventListener('pointerup', () => {
-            if (panning) { panning = false; svg.style.cursor = 'grab'; SS.savePZ(); }
+        ctx.restore();
+
+        /* ノード */
+        nodes.forEach(n => {
+            const [x, y] = sp.get(n.id);
+            const isCore  = n.type === 'core';
+            const isQuest = n.type === 'quest';
+            const isIdle  = n.state === 'idle' && !isCore;
+
+            let baseR = isCore ? 13 : isQuest ? (n.level <= 1 ? 9 : 7) : 5;
+            baseR = Math.max(isCore ? 7 : 2.4, baseR * zoom * 1.15);
+
+            const bright = n.done ? 1 : isCore ? 1 : n.state === 'progress' ? 0.66 : 0.3;
+            const tw  = 0.5 + 0.5 * Math.sin(t * (1.5 + (n._sp||0.3)*1.3) + (n._ph||0)*1.7);
+            const rgb = isCore ? PAL.core : n.done ? PAL.done : (n.state==='progress' ? PAL.task : PAL.idle);
+
+            drawStar(x, y, baseR, rgb, bright, tw, isCore, n.done, isIdle);
+
+            /* コアリング */
+            if (isCore) {
+                const pulse = 0.5 + 0.5*Math.sin(t*1.2 + (n._ph||0));
+                ctx.save(); ctx.globalCompositeOperation='lighter';
+                ctx.strokeStyle='rgba('+rgb+','+(0.30+0.18*pulse)+')'; ctx.lineWidth=1;
+                ctx.beginPath(); ctx.arc(x,y, baseR*2.3+pulse*3, 0, 6.2832); ctx.stroke();
+                ctx.restore();
+            }
+
+            /* 進捗アーク（クエスト） */
+            if (isQuest && !n.done && labelOp > 0.05 && n.progress > 0) {
+                ctx.save();
+                ctx.strokeStyle='rgba('+PAL.quest+','+(0.85*labelOp)+')';
+                ctx.lineWidth=2; ctx.lineCap='round';
+                ctx.beginPath(); ctx.arc(x,y, baseR+5, -Math.PI/2, -Math.PI/2+n.progress*6.2832); ctx.stroke();
+                ctx.restore();
+            }
+
+            /* ラベル（ズームイン時） */
+            if (labelOp > 0.02 && !isCore) {
+                ctx.save(); ctx.globalAlpha = labelOp;
+                ctx.font = (isQuest ? '600 12' : '11') + 'px -apple-system,sans-serif';
+                ctx.fillStyle = n.done ? PAL.labelDim : PAL.label;
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor='rgba(0,0,0,0.7)'; ctx.shadowBlur=6;
+                ctx.fillText(n.name, x + baseR + 7, y);
+                ctx.restore();
+            }
+
+            /* コアラベル */
+            if (isCore && labelOp > 0.02) {
+                ctx.save(); ctx.globalAlpha = labelOp;
+                ctx.font='600 12px -apple-system,sans-serif';
+                ctx.fillStyle=PAL.label; ctx.textAlign='center'; ctx.textBaseline='top';
+                ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=6;
+                ctx.fillText(n.name, x, y+baseR+8);
+                ctx.restore();
+            }
+
+            /* 星座名（ズームアウト時） */
+            if (skyOp > 0.02 && isQuest && n.level === 1) {
+                ctx.save(); ctx.globalAlpha = skyOp * 0.75;
+                ctx.font='600 11px -apple-system,sans-serif';
+                ctx.fillStyle=PAL.labelDim; ctx.textAlign='center'; ctx.textBaseline='top';
+                ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=8;
+                ctx.fillText(n.name, x, y+baseR+4);
+                ctx.restore();
+            }
         });
-        svg.addEventListener('pointercancel', () => { panning = false; svg.style.cursor = 'grab'; });
-
-        svg.addEventListener('wheel', e => {
-            e.preventDefault();
-            const r  = svg.getBoundingClientRect();
-            const mx = e.clientX - r.left, my = e.clientY - r.top;
-            const ns = Math.min(3, Math.max(0.2, scale * (e.deltaY < 0 ? 1.1 : 0.9)));
-            pan.x = mx - (mx - pan.x) * (ns / scale);
-            pan.y = my - (my - pan.y) * (ns / scale);
-            scale = ns; applyTransform(); SS.savePZ();
-        }, { passive: false });
     }
 
-    function openJournalEntry(journalId) {
-        document.querySelector('.tab-nav-item[data-tab="journal"]')?.click();
-        setTimeout(() => {
-            const card = document.querySelector(`.journal-card[data-id="${journalId}"]`);
-            if (!card) return;
-            const content = card.closest('.journal-month-content');
-            const header  = content?.previousElementSibling;
-            if (content && !content.classList.contains('active') && header) header.click();
-            setTimeout(() => {
-                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                card.classList.add('journal-highlight');
-                setTimeout(() => card.classList.remove('journal-highlight'), 2000);
-            }, 200);
-        }, 300);
+    /* -------- インタラクション -------- */
+    let moved=false, vel={x:0,y:0};
+    let lastTapT=0, lastTapXY=null;
+    const pts = new Map();
+    let pinch = null;
+
+    function hitTest(sx, sy) {
+        const t = performance.now() / 1000;
+        let best=null, bd=999;
+        nodes.forEach(n => {
+            const [x,y] = proj(n, t);
+            const d = Math.hypot(sx-x, sy-y);
+            const R = n.type==='core' ? 24 : n.type==='quest' ? 22 : 18;
+            if (d<R && d<bd) { bd=d; best=n; }
+        });
+        return best;
     }
 
-    function svgNS(tag)         { return document.createElementNS(NS, tag); }
-    function svgEl_(tag, attrs) {
-        const el = document.createElementNS(NS, tag);
-        Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
-        return el;
+    function onPointerDown(e) {
+        try { cv.setPointerCapture(e.pointerId); } catch(_){}
+        pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+        if (pts.size === 2) { startPinch(); return; }
+        moved = false; cam.vx=0; cam.vy=0; vel={x:0,y:0};
+        dragging = true; cv.style.cursor = 'grabbing';
     }
-    function truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
-    function fmtDate(iso) {
-        if (!iso) return '';
-        const d = new Date(iso);
-        return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    function onPointerMove(e) {
+        if (!pts.has(e.pointerId)) return;
+        const prev = pts.get(e.pointerId);
+        pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+        if (pts.size >= 2) { movePinch(); return; }
+        const dx = e.clientX-prev.x, dy = e.clientY-prev.y;
+        if (!dragging) return;
+        if (Math.abs(dx)+Math.abs(dy) > 2) moved = true;
+        cam.x -= dx/cam.zoom; cam.y -= dy/cam.zoom;
+        vel.x = vel.x*0.6 + (-dx/cam.zoom)*0.4;
+        vel.y = vel.y*0.6 + (-dy/cam.zoom)*0.4;
+    }
+    function onPointerUp(e) {
+        const r  = cv.getBoundingClientRect();
+        const sx = e.clientX-r.left, sy = e.clientY-r.top;
+        pts.delete(e.pointerId);
+        if (pts.size < 2) pinch = null;
+        if (!dragging) return;
+        dragging = false; cv.style.cursor = 'grab';
+        if (!moved) {
+            const nowT = performance.now();
+            if (nowT-lastTapT<280 && lastTapXY && Math.hypot(sx-lastTapXY[0],sy-lastTapXY[1])<30) {
+                setZoom(cam.zoom<1.0 ? cam.zoom*2.1 : cam.zoom*0.5, sx, sy);
+                lastTapT=0; return;
+            }
+            lastTapT=nowT; lastTapXY=[sx,sy];
+            const n = hitTest(sx, sy);
+            if (n) openSheet(n);
+        } else {
+            cam.vx=vel.x; cam.vy=vel.y;
+        }
+    }
+    function startPinch() {
+        const a = [...pts.values()];
+        const r = cv.getBoundingClientRect();
+        const mx=(a[0].x+a[1].x)/2-r.left, my=(a[0].y+a[1].y)/2-r.top;
+        pinch={d:Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y), z:cam.zoom, mx, my};
+        dragging=false;
+    }
+    function movePinch() {
+        if (!pinch) return;
+        const a = [...pts.values()];
+        const r = cv.getBoundingClientRect();
+        const nd=Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y);
+        const mx=(a[0].x+a[1].x)/2-r.left, my=(a[0].y+a[1].y)/2-r.top;
+        setZoom(pinch.z*(nd/pinch.d), mx, my);
     }
 
+    /* -------- ボトムシート -------- */
+    const sheetEl = document.createElement('div');
+    sheetEl.style.cssText = [
+        'position:fixed;left:0;right:0;bottom:0;z-index:500;',
+        'transform:translateY(108%);transition:transform .42s cubic-bezier(.32,.72,0,1);',
+        'background:rgba(13,15,30,0.93);',
+        'backdrop-filter:blur(32px) saturate(1.5);',
+        '-webkit-backdrop-filter:blur(32px) saturate(1.5);',
+        'border-top:1px solid rgba(160,180,255,0.14);border-radius:22px 22px 0 0;',
+        'padding:10px 20px calc(24px + env(safe-area-inset-bottom));',
+        'color:#eef1ff;font-family:-apple-system,sans-serif;',
+        'box-shadow:0 -16px 48px rgba(0,0,0,0.6);max-height:70vh;overflow-y:auto;',
+    ].join('');
+
+    const bdEl = document.createElement('div');
+    bdEl.style.cssText = 'position:fixed;inset:0;z-index:499;background:rgba(2,3,10,0);pointer-events:none;transition:background .38s ease;';
+    document.body.appendChild(bdEl);
+    document.body.appendChild(sheetEl);
+
+    function openSheet(n) {
+        if (n.type === 'core') return;
+        const isDone  = n.done;
+        const isQuest = n.type === 'quest';
+        const pct     = isQuest && n._total > 0 ? Math.round(n.progress*100) : 0;
+
+        const progressHtml = isDone
+            ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,210,140,0.14);color:#ffd28a;font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;margin-bottom:14px;">✦ 達成済み</div>'
+            : isQuest && n._total > 1
+                ? '<div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(190,200,235,0.6);margin-bottom:6px;"><span>クエスト進捗</span><span style="color:#ffd28a;font-weight:700;">' + n._done + '/' + n._total + ' \xb7 ' + pct + '%</span></div><div style="height:5px;border-radius:3px;background:rgba(120,135,200,0.2);margin-bottom:14px;"><div style="height:100%;width:' + pct + '%;border-radius:3px;background:linear-gradient(90deg,#ffd98a,#ff9f43);"></div></div>'
+                : '';
+
+        const actionHtml = !isDone
+            ? '<button id="cz-ok" style="width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#34c759,#30a84a);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;">✓ 完了にする</button>'
+            : '<button id="cz-undo" style="width:100%;padding:14px;border:1px solid rgba(160,180,255,0.2);border-radius:14px;background:transparent;color:rgba(190,200,235,0.8);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:10px;">↩ 未完了に戻す</button>';
+
+        sheetEl.innerHTML =
+            '<div style="width:36px;height:5px;border-radius:3px;background:rgba(190,200,235,0.35);margin:0 auto 16px;"></div>' +
+            '<div style="font-size:11px;letter-spacing:1.5px;color:rgba(190,200,235,0.6);font-weight:700;margin-bottom:6px;">' + (isQuest ? 'QUEST' : 'TASK') + '</div>' +
+            '<div style="font-size:20px;font-weight:700;color:#eef1ff;margin-bottom:14px;line-height:1.3;">' + escHtml(n.name) + '</div>' +
+            progressHtml + actionHtml +
+            '<button id="cz-del" style="width:100%;padding:12px;border:1px solid rgba(255,80,60,0.3);border-radius:14px;background:transparent;color:rgba(255,100,80,0.8);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">削除</button>';
+
+        sheetEl.querySelector('#cz-ok') && sheetEl.querySelector('#cz-ok').addEventListener('click', async () => {
+            closeSheet();
+            await action('complete', n._apiData.id);
+            _tasksCache = null;
+            refreshTree();
+        });
+        sheetEl.querySelector('#cz-undo') && sheetEl.querySelector('#cz-undo').addEventListener('click', async () => {
+            closeSheet();
+            await action('uncomplete', n._apiData.id);
+            _tasksCache = null;
+            refreshTree();
+        });
+        sheetEl.querySelector('#cz-del').addEventListener('click', async () => {
+            if (!confirm('「' + n.name + '」を削除しますか？')) return;
+            closeSheet();
+            await action('delete', n._apiData.id);
+            _tasksCache = null;
+            refreshTree();
+        });
+
+        sheetEl.style.transform  = 'translateY(0)';
+        bdEl.style.background    = 'rgba(2,3,10,0.52)';
+        bdEl.style.pointerEvents = 'auto';
+    }
+
+    function closeSheet() {
+        sheetEl.style.transform  = 'translateY(108%)';
+        bdEl.style.background    = 'rgba(2,3,10,0)';
+        bdEl.style.pointerEvents = 'none';
+    }
+    bdEl.addEventListener('pointerdown', closeSheet);
+
+    function escHtml(s) {
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* -------- フィットボタン -------- */
+    function addFitBtn() {
+        const btn = document.createElement('button');
+        btn.style.cssText = [
+            'position:absolute;right:14px;top:12px;z-index:16;',
+            'width:40px;height:40px;border-radius:50%;',
+            'border:1px solid rgba(160,180,255,0.14);',
+            'background:rgba(9,11,22,0.72);',
+            'backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);',
+            'color:#eef1ff;font-size:16px;cursor:pointer;',
+            'display:flex;align-items:center;justify-content:center;',
+        ].join('');
+        btn.textContent = '⊛';
+        btn.title = '全体を表示';
+        btn.onclick = () => {
+            fitting=true; fitTo=getFitBox(); zooming=false; cam.vx=0; cam.vy=0;
+        };
+        treeView.appendChild(btn);
+    }
+
+    /* -------- データ読み込み -------- */
+    async function refreshTree() {
+        try {
+            const data = await apiCall('/tasks/tree?user_id=' + encodeURIComponent(userId));
+            if (!data || !data.length) { nodes=[]; edges=[]; return; }
+            buildGraph(data);
+        } catch(e) {
+            console.error('[constellation] load error:', e);
+        }
+    }
+
+    /* -------- ビュー切替 -------- */
+    let eventsAttached = false;
+    function showTree() {
+        window._treeViewActive = true;
+        listView.style.display = 'none';
+        treeView.style.display = '';
+        if (addBar) addBar.style.display = 'none';
+
+        if (!cv) { initCanvas(); addFitBtn(); }
+        resize();
+        if (animId) cancelAnimationFrame(animId);
+        lastT = performance.now();
+        animId = requestAnimationFrame(draw);
+
+        if (!eventsAttached) {
+            eventsAttached = true;
+            cv.addEventListener('pointerdown', onPointerDown);
+            cv.addEventListener('pointermove', onPointerMove);
+            cv.addEventListener('pointerup',   onPointerUp);
+            cv.addEventListener('pointercancel', e => { pts.delete(e.pointerId); pinch=null; dragging=false; });
+            cv.addEventListener('wheel', e => {
+                e.preventDefault();
+                const r = cv.getBoundingClientRect();
+                const base = zooming ? zoomTarget : cam.zoom;
+                setZoom(base*(e.deltaY<0?1.12:0.89), e.clientX-r.left, e.clientY-r.top);
+            }, {passive:false});
+            window.addEventListener('resize', () => {
+                if (treeView.style.display !== 'none') resize();
+            });
+        }
+        refreshTree();
+    }
+
+    function hideTree() {
+        window._treeViewActive = false;
+        if (animId) { cancelAnimationFrame(animId); animId=null; }
+        closeSheet();
+        if (addBar) addBar.style.display = '';
+        listView.style.display = '';
+        treeView.style.display = 'none';
+    }
+
+    btnList.addEventListener('click', () => {
+        btnList.classList.add('active');
+        btnTree.classList.remove('active');
+        hideTree();
+    });
+    btnTree.addEventListener('click', () => {
+        btnTree.classList.add('active');
+        btnList.classList.remove('active');
+        showTree();
+    });
+
+    /* -------- 公開API -------- */
     window.refreshTreeIfVisible = () => {
-        if (treeView?.style.display !== 'none') renderTree();
+        if (treeView && treeView.style.display !== 'none') refreshTree();
     };
     window.enterMoveMode = (taskId, taskName) => {
-        moveMode = { taskId, taskName };
-        window._treeViewActive = true;
-        btnTree.classList.add('active'); btnList.classList.remove('active');
-        listView.style.display = 'none'; treeView.style.display = '';
-        renderTree().then(() => showMoveBanner(taskName));
+        btnTree.click();
+        if (typeof showToast === 'function') showToast('ツリービューで移動先のクエストをタップしてください');
     };
+
 })();
