@@ -2213,3 +2213,120 @@ body { overscroll-behavior-y: none; }
     transition: transform 0.08s ease, opacity 0.08s ease;
 }
 
+/* =============================================
+   1a クリーン - iOS Pure List Design
+   ============================================= */
+#tab-list { background: #f2f2f7; }
+#tab-list main#listView { background: #f2f2f7; padding-bottom: 96px; }
+
+/* Section labels */
+#tab-list .list-section-label {
+    font-size: 12.5px; font-weight: 700; color: #8a8a8e;
+    padding: 18px 20px 8px; background: transparent;
+    text-transform: uppercase; letter-spacing: 0.3px;
+}
+#tab-list .list-section-urgent { color: #ff3b30; }
+#tab-list .list-section-quest  { color: #ff9f43; }
+#tab-list .list-section-task   { color: #8a8a8e; }
+.section-count { font-size: 11px; font-weight: 500; opacity: 0.7; margin-left: 2px; }
+.section-count:not(:empty)::before { content: '\B7\00A0'; }
+
+/* List group card */
+#tab-list .list {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 0 16px 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0.5px 1px rgba(0,0,0,0.04);
+}
+#tab-list .list:empty { display: none; }
+
+/* Override card base */
+#tab-list .card {
+    min-height: 58px;
+    background: transparent !important;
+    border-bottom: 0.5px solid rgba(60,60,67,0.12);
+    border-left: none !important;
+    box-shadow: none !important;
+}
+#tab-list .card:last-child { border-bottom: none; }
+#tab-list .card:hover { background: rgba(0,0,0,0.02) !important; }
+
+/* Slide layer */
+#tab-list .card .sl {
+    min-height: 58px;
+    background: transparent;
+    padding: 0 14px 0 12px;
+    align-items: center;
+}
+#tab-list .actions-rail { height: 58px; }
+
+/* Priority tints */
+#tab-list .card.priority-critical { background: rgba(255,59,48,0.06) !important; }
+#tab-list .card.priority-high     { background: rgba(255,159,67,0.06) !important; }
+
+/* Task title */
+#tab-list .card .title { font-size: 16px; font-weight: 400; color: #1c1c1e; }
+#tab-list .card.priority-critical .title { font-weight: 600; }
+#tab-list .card.completed .title { color: #8a8a8e; }
+
+/* Inline checkbox */
+.card-check {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: none; background: none; padding: 0;
+    flex-shrink: 0; display: flex; align-items: center;
+    justify-content: center; cursor: pointer;
+    margin-right: 10px; align-self: center;
+    -webkit-tap-highlight-color: transparent;
+    transform-origin: center;
+}
+.card-check svg { width: 26px; height: 26px; display: block; }
+
+/* Completed section */
+#tab-list .completed-section { margin: 0 16px 12px; background: #fff; border-radius: 14px; overflow: hidden; }
+#tab-list .completed-list-wrap #completed { margin: 0; border-radius: 0; box-shadow: none; background: transparent; }
+
+/* Quick add bar */
+.list-add-bar {
+    position: fixed;
+    bottom: calc(56px + env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    width: calc(100% - 32px); max-width: 480px;
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+    display: flex; align-items: center;
+    padding: 10px 12px 10px 16px; gap: 10px;
+    z-index: 200;
+    border: 0.5px solid rgba(60,60,67,0.12);
+}
+.list-add-bar input {
+    flex: 1; border: none; background: none;
+    font-size: 16px; color: #1c1c1e; outline: none;
+    padding: 0; min-width: 0;
+}
+.list-add-bar input::placeholder { color: #8a8a8e; }
+.list-add-bar-btn {
+    width: 32px; height: 32px; flex-shrink: 0;
+    background: #34c759; border: none; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0;
+}
+.list-add-bar-btn svg { width: 18px; height: 18px; }
+
+/* Dark mode 1a */
+[data-theme="dark"] #tab-list { background: #1c1c1e; }
+[data-theme="dark"] #tab-list main#listView { background: #1c1c1e; }
+[data-theme="dark"] #tab-list .list { background: #2c2c2e; box-shadow: none; }
+[data-theme="dark"] #tab-list .card { border-bottom-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] #tab-list .card .sl { background: transparent; }
+[data-theme="dark"] #tab-list .card .title { color: #f2f2f7; }
+[data-theme="dark"] #tab-list .card.completed .title { color: #8e8e93; }
+[data-theme="dark"] #tab-list .list-section-label { background: transparent; }
+[data-theme="dark"] #tab-list .completed-section { background: #2c2c2e; }
+[data-theme="dark"] .list-add-bar { background: rgba(44,44,46,0.92); border-color: rgba(255,255,255,0.1); }
+[data-theme="dark"] .list-add-bar input { color: #f2f2f7; }
+[data-theme="dark"] .list-add-bar input::placeholder { color: #8e8e93; }
+

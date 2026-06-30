@@ -67,6 +67,14 @@ function renderList(payload) {
     document.getElementById('questSection').style.display = quest.length > 0 ? '' : 'none';
     document.getElementById('taskSection').style.display = tasks.length > 0 ? '' : 'none';
 
+    // セクションカウント更新
+    const urgentCountEl = document.getElementById('urgentCount');
+    const questCountEl  = document.getElementById('questCount');
+    const taskCountEl   = document.getElementById('taskCount');
+    if (urgentCountEl) urgentCountEl.textContent = urgent.length > 0 ? `${urgent.length}` : '';
+    if (questCountEl)  questCountEl.textContent  = quest.length  > 0 ? `${quest.length}`  : '';
+    if (taskCountEl)   taskCountEl.textContent   = tasks.length  > 0 ? `${tasks.length}`  : '';
+
     // ジャーナル用に今日の達成タスクを保持
     window._completedTasksForJournal = completed;
 
@@ -91,6 +99,13 @@ function updateCompletedToggle(count) {
             wrap.classList.toggle('open', !isOpen);
         });
     }
+}
+
+function _ringCheckSvg(color = 'rgba(60,60,67,0.3)') {
+    return `<svg viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="11" stroke="${color}" stroke-width="1.5"/></svg>`;
+}
+function _filledCheckSvg(color) {
+    return `<svg viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="13" fill="${color}"/><polyline points="7,13.5 11,17.5 19,9" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
 /**
@@ -139,6 +154,24 @@ function createTaskCard(t, isCompleted, priority) {
     // メインコンテンツ（スライド部分）
     const sl = document.createElement("div");
     sl.className = "sl";
+
+    // インラインチェックボックス
+    const checkBtn = document.createElement('button');
+    checkBtn.className = 'card-check';
+    const chkColor = priority === 'critical' ? '#ff3b30' : '#34c759';
+    checkBtn.innerHTML = isCompleted ? _filledCheckSvg('#34c759') : _ringCheckSvg(chkColor);
+    checkBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        checkBtn.style.animation = 'none';
+        void checkBtn.offsetHeight;
+        checkBtn.style.animation = 'czCheckPop .28s cubic-bezier(.32,.72,0,1)';
+        if (isCompleted) {
+            if (checkTaskLimit()) action('uncomplete', t.id);
+        } else {
+            action('complete', t.id);
+        }
+    });
 
     // コンテンツエリア（タイトル＋リマインド）
     const contentArea = document.createElement("div");
@@ -196,7 +229,7 @@ function createTaskCard(t, isCompleted, priority) {
     handle.className = "handle";
     handle.textContent = "☰";
 
-    sl.append(contentArea, handle);
+    sl.append(checkBtn, contentArea, handle);
     const editPanel = createCardEditPanel(t);
     const inlineSubs = document.createElement('div');
     inlineSubs.className = 'card-inline-subtasks';

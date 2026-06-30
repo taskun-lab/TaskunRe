@@ -36,11 +36,11 @@
         <!-- リストビュー -->
         <main id="listView">
             <div id="missionTaskContainer"></div>
-            <div class="list-section-label list-section-urgent" id="urgentSection" style="display:none;">⚡ 今日中</div>
+            <div class="list-section-label list-section-urgent" id="urgentSection" style="display:none;">⚡ 今日中<span id="urgentCount" class="section-count"></span></div>
             <div id="urgentList" class="list"></div>
-            <div class="list-section-label list-section-quest" id="questSection" style="display:none;">🎯 クエスト</div>
+            <div class="list-section-label list-section-quest" id="questSection" style="display:none;">🎯 クエスト<span id="questCount" class="section-count"></span></div>
             <div id="questList" class="list"></div>
-            <div class="list-section-label list-section-task" id="taskSection" style="display:none;">✅ タスク</div>
+            <div class="list-section-label list-section-task" id="taskSection" style="display:none;">✅ タスク<span id="taskCount" class="section-count"></span></div>
             <div id="taskList" class="list"></div>
             <div class="completed-section">
                 <div class="completed-section-header" id="completedToggle">
@@ -56,6 +56,13 @@
         <main id="treeView" style="display:none;">
             <div id="treeContainer"></div>
         </main>
+        <!-- クイック追加バー -->
+        <div class="list-add-bar">
+            <input type="text" id="newTitle" placeholder="新しいタスクを追加…" autocomplete="off" />
+            <button class="list-add-bar-btn" id="listAddBarBtn" aria-label="追加">
+                <svg viewBox="0 0 18 18" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="2" x2="9" y2="16"/><line x1="2" y1="9" x2="16" y2="9"/></svg>
+            </button>
+        </div>
     </div>
 
     <!-- ステータスタブ -->
@@ -691,16 +698,16 @@
     </nav>
 
     <!-- JavaScript読み込み（順序重要）-->
-    <script src="js/config.js?v=20260630a"></script>
-    <script src="js/swipe.js?v=20260630a"></script>
-    <script src="js/api.js?v=20260630a"></script>
-    <script src="js/task.js?v=20260630a"></script>
-    <script src="js/habit.js?v=20260630a"></script>
-    <script src="js/journal.js?v=20260630a"></script>
-    <script src="js/msc.js?v=20260630a"></script>
-    <script src="js/modal.js?v=20260630a"></script>
-    <script src="js/developer.js?v=20260630a"></script>
-    <script src="js/app.js?v=20260630a"></script>
-    <script src="js/tree.js?v=20260630a"></script>
+    <script src="js/config.js?v=20260630b"></script>
+    <script src="js/swipe.js?v=20260630b"></script>
+    <script src="js/api.js?v=20260630b"></script>
+    <script src="js/task.js?v=20260630b"></script>
+    <script src="js/habit.js?v=20260630b"></script>
+    <script src="js/journal.js?v=20260630b"></script>
+    <script src="js/msc.js?v=20260630b"></script>
+    <script src="js/modal.js?v=20260630b"></script>
+    <script src="js/developer.js?v=20260630b"></script>
+    <script src="js/app.js?v=20260630b"></script>
+    <script src="js/tree.js?v=20260630b"></script>
 </body>
 </html>

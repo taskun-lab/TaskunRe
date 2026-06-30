@@ -173,6 +173,16 @@ function bindUI() {
     const navAddBtn = document.getElementById('navAddBtn');
     if (navAddBtn) navAddBtn.onclick = showAddTaskModal;
 
+    // クイック追加バー
+    const listAddBarBtn = document.getElementById('listAddBarBtn');
+    if (listAddBarBtn) listAddBarBtn.onclick = addTask;
+    const newTitleInput = document.getElementById('newTitle');
+    if (newTitleInput) {
+        newTitleInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); addTask(); }
+        });
+    }
+
     // ステータスタブ
     document.getElementById('dailyTaskCard').addEventListener('click', e => {
         if (!e.target.closest('.habit-checkbox') && !e.target.closest('.daily-btn') && !e.target.closest('.habit-date-row')) {
