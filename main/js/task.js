@@ -100,6 +100,7 @@ function createTaskCard(t, isCompleted, priority) {
     const wrap = document.createElement("div");
     wrap.className = `card priority-${priority}`;
     if (isCompleted) wrap.classList.add("completed");
+    if (t._new) { wrap.style.animation = 'czRowIn .42s cubic-bezier(.32,.72,0,1) both'; t._new = false; }
 
     // アクションレール（左右のボタン）
     const rail = document.createElement("div");
@@ -518,15 +519,38 @@ async function saveSortOrder() {
 /**
  * タスク追加（インライン入力）
  */
+let _tempIdCounter = -1;
+
 async function addTask() {
     const input = document.getElementById('newTitle');
     const title = input.value.trim();
     if (!title) return;
-
     if (!checkTaskLimit()) return;
 
-    await action("create", null, { task_name: title });
-    input.value = "";
+    input.value = '';
+
+    // 楽観的追加：即キャッシュに挿入してアニメ付きで表示
+    const tempId = --_tempIdCounter;
+    const tempTask = {
+        id: tempId, task_name: title,
+        task_type: 'default', priority_level: 'normal', _new: true,
+    };
+    if (_tasksCache) {
+        _tasksCache.active = [tempTask, ...(_tasksCache.active || [])];
+        renderList(_tasksCache);
+    }
+
+    // バックグラウンドでAPIを叩く
+    apiCall('/tasks/action', 'POST', { user_id: userId, action: 'create', task_name: title })
+        .then(() => { _tasksCache = null; loadList(true); })
+        .catch(e => {
+            console.error('[addTask] error:', e);
+            if (_tasksCache) {
+                _tasksCache.active = (_tasksCache.active || []).filter(t => t.id !== tempId);
+                renderList(_tasksCache);
+            }
+            showToast('追加に失敗しました', 'error');
+        });
 }
 
 /**

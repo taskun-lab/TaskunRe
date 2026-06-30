@@ -26,22 +26,52 @@ async function apiCall(endpoint, method = 'GET', body = null) {
  * タスクアクション（完了、削除、更新など）
  */
 async function action(kind, id, extra = {}) {
-    // 楽観的UI更新
-    const row = document.querySelector(`[data-task-id="${id}"]`);
-    if (row) {
-        if (kind === 'complete') row.classList.add('completing');
-        if (kind === 'delete')   row.style.opacity = '0.3';
+    const OPTIMISTIC = ['complete', 'uncomplete', 'delete'];
+    if (OPTIMISTIC.includes(kind) && _tasksCache) {
+        const snapshot = JSON.parse(JSON.stringify(_tasksCache));
+        _applyOptimisticUpdate(kind, id);
+        apiCall('/tasks/action', 'POST', { user_id: userId, action: kind, task_id: id, ...extra })
+            .then(() => { _tasksCache = null; loadList(true); })
+            .catch(e => {
+                console.error("[ACTION] error:", e);
+                _tasksCache = snapshot;
+                renderList(_tasksCache);
+                showToast('操作に失敗しました', 'error');
+            });
+        return;
     }
     try {
         await apiCall('/tasks/action', 'POST', { user_id: userId, action: kind, task_id: id, ...extra });
-        _tasksCache = null; // キャッシュ無効化
+        _tasksCache = null;
     } catch (e) {
         console.error("[ACTION] error:", e);
-        if (row) { row.classList.remove('completing'); row.style.opacity = ''; }
         showToast('操作に失敗しました', 'error');
     } finally {
         if (kind !== "remind_custom") loadList(true);
     }
+}
+
+function _applyOptimisticUpdate(kind, id) {
+    if (!_tasksCache) return;
+    const keys = ['critical', 'high', 'active', 'completed'];
+    let found = null, foundKey = null;
+    for (const key of keys) {
+        const arr = _tasksCache[key];
+        if (!Array.isArray(arr)) continue;
+        const idx = arr.findIndex(t => String(t.id) === String(id));
+        if (idx !== -1) { found = arr[idx]; foundKey = key; break; }
+    }
+    if (!found) return;
+    if (kind === 'complete') {
+        _tasksCache[foundKey] = _tasksCache[foundKey].filter(t => String(t.id) !== String(id));
+        _tasksCache.completed = [found, ...(_tasksCache.completed || [])];
+    } else if (kind === 'uncomplete') {
+        _tasksCache.completed = (_tasksCache.completed || []).filter(t => String(t.id) !== String(id));
+        (_tasksCache.active = _tasksCache.active || []).unshift(found);
+    } else if (kind === 'delete') {
+        _tasksCache[foundKey] = _tasksCache[foundKey].filter(t => String(t.id) !== String(id));
+    }
+    renderList(_tasksCache);
 }
 
 /**
