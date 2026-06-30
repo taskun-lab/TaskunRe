@@ -249,6 +249,7 @@ function _updateYearNav() {
 ───────────────────────────────────────────── */
 function renderJournals() {
     _updateYearNav();
+    _renderJournalTodayPrompt();
     const container = document.getElementById('journalList');
     const filtered  = journalsGrouped.filter(g => g.year === _journalYear);
 
@@ -264,15 +265,17 @@ function renderJournals() {
 
     let html = '';
     for (const group of filtered) {
-        html += `<div class="journal-month-label">${_escJ(group.label)}</div>`;
+        html += `<div class="journal-month-label">${_escJ(group.label)}<span class="journal-month-count">${group.journals.length}件</span></div>`;
+        html += `<div class="journal-group-wrap">`;
         for (const j of group.journals) {
-            const dt      = j.created_at ? new Date(j.created_at) : new Date(j.date + 'T00:00:00');
-            const dow     = ['日','月','火','水','木','金','土'][dt.getDay()];
-            const day     = dt.getDate();
-            const time    = j.created_at ? _timeStr(j.created_at) : '';
-            const bodyText = (j.content || '').trim();
-            const preview  = bodyText.replace(/\n/g, ' ').substring(0, 100);
-            const isFav   = !!j.is_favorite;
+            const dt        = j.created_at ? new Date(j.created_at) : new Date(j.date + 'T00:00:00');
+            const dow       = ['日','月','火','水','木','金','土'][dt.getDay()];
+            const day       = dt.getDate();
+            const time      = j.created_at ? _timeStr(j.created_at) : '';
+            const bodyText  = (j.content || '').trim();
+            const preview   = bodyText.replace(/\n/g, ' ').substring(0, 100);
+            const isFav     = !!j.is_favorite;
+            const tasksDone = j.tasks_completed_count || 0;
 
             const favFill = isFav ? '#ffd60a' : 'none';
             const favStroke = isFav ? '#ffd60a' : '#333';
@@ -301,11 +304,13 @@ function renderJournals() {
                         <div class="journal-card-body-col">
                             <div class="journal-card-title">${_escJ(j.title || '無題')}</div>
                             <div class="journal-card-preview">${_escJ(preview)}${bodyText.length > 100 ? '…' : ''}</div>
+                            ${tasksDone > 0 ? `<div class="journal-card-done-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>この日 ${tasksDone}件達成</div>` : ''}
                         </div>
                         ${isFav ? '<span class="journal-fav-badge">★</span>' : ''}
                     </div>
                 </div>`;
         }
+        html += `</div>`;
     }
     container.innerHTML = html;
 
@@ -363,24 +368,62 @@ async function loadTemplateCarousel() {
     renderTemplateCarousel(_templateCache);
 }
 
+const _TMPL_THEMES = [
+    { g0: '#e9f7ef', g1: '#d4eede', ink: '#1b7a45', icon: '✏️' },
+    { g0: '#fff4e6', g1: '#ffe8cc', ink: '#c2741a', icon: '🌿' },
+    { g0: '#e7f0ff', g1: '#d6e4ff', ink: '#3a5bbf', icon: '🔁' },
+    { g0: '#fff0f3', g1: '#ffe3ea', ink: '#c2405a', icon: '🏆' },
+    { g0: '#f1f0ee', g1: '#e6e4e0', ink: '#5a564f', icon: '📝' },
+];
+
 function renderTemplateCarousel(templates) {
     const carousel = document.getElementById('templateCarousel');
     if (!carousel) return;
     if (!templates.length) { carousel.innerHTML = ''; return; }
 
-    carousel.innerHTML = templates.map(t => `
-        <div class="template-card" data-template-id="${t.id}">
-            <div class="template-card-title">${_escJ(t.title)}</div>
-            <div class="template-card-content">${_escJ(t.content)}</div>
-        </div>`).join('');
+    carousel.innerHTML = templates.map((t, i) => {
+        const th = _TMPL_THEMES[i % _TMPL_THEMES.length];
+        const desc = _escJ((t.description || t.content || '').substring(0, 28));
+        return `<button class="template-card-3a" data-template-id="${t.id}"
+            style="background:linear-gradient(150deg,${th.g0},${th.g1});">
+            <span class="template-card-3a-icon">${th.icon}</span>
+            <span class="template-card-3a-title" style="color:${th.ink};">${_escJ(t.title)}</span>
+            <span class="template-card-3a-desc" style="color:${th.ink};">${desc}</span>
+        </button>`;
+    }).join('');
 
-    carousel.querySelectorAll('.template-card').forEach(card => {
+    carousel.querySelectorAll('.template-card-3a').forEach(card => {
+        card.addEventListener('pointerdown', () => {}, { passive: true });
         card.onclick = () => {
             const tid = card.dataset.templateId;
             const t   = _templateCache.find(x => String(x.id) === String(tid));
-            if (t) openTemplateDetailModal(t);
+            if (t) openNewJournalEditor({ prefillContent: t.content });
         };
     });
+}
+
+function _renderJournalTodayPrompt() {
+    const el = document.getElementById('journalTodayPrompt');
+    if (!el) return;
+    const done = window._completedTasksForJournal || [];
+    if (!done.length) { el.innerHTML = ''; return; }
+    const chips = done.map(t => {
+        const name = _escJ(t.task_name || t.title || t.name || '');
+        return name ? `<span class="journal-today-chip">${name}</span>` : '';
+    }).filter(Boolean).join('');
+    el.innerHTML = `<div class="journal-today-wrap">
+        <div class="journal-today-header">
+            <span style="font-size:16px;">✦</span>
+            <span class="journal-today-title">今日、${done.length}件を達成しました</span>
+        </div>
+        ${chips ? `<div class="journal-today-chips">${chips}</div>` : ''}
+        <button class="journal-today-btn" id="journalTodayWriteBtn">今日の記録を残す</button>
+    </div>`;
+    const btn = document.getElementById('journalTodayWriteBtn');
+    if (btn) btn.onclick = () => {
+        const names = done.map(t => t.task_name || t.title || t.name || '').filter(Boolean);
+        openNewJournalEditor({ prefillContent: '今日の達成：\n・' + names.join('\n・') + '\n\n振り返り：\n' });
+    };
 }
 
 /* ─────────────────────────────────────────────
@@ -501,6 +544,30 @@ function openNewJournalEditor(opts = {}) {
     document.getElementById('journalViewContent').style.display = 'none';
     document.getElementById('journalEditContent').style.display = '';
     document.getElementById('journalDetailModal').classList.add('visible');
+    _showJournalEdChips();
+}
+
+function _showJournalEdChips() {
+    const bar = document.getElementById('journalEdChipsBar');
+    if (!bar) return;
+    const done = window._completedTasksForJournal || [];
+    if (!done.length) { bar.style.display = 'none'; return; }
+    const chipsEl = document.getElementById('journalEdChips');
+    if (chipsEl) {
+        chipsEl.innerHTML = done.map(t => {
+            const name = _escJ(t.task_name || t.title || t.name || '');
+            return name ? `<button class="journal-ed-chip" data-name="${name}">${name}</button>` : '';
+        }).filter(Boolean).join('');
+        chipsEl.querySelectorAll('.journal-ed-chip').forEach(ch => {
+            ch.onclick = () => {
+                const ta = document.getElementById('editJournalText');
+                if (!ta) return;
+                ta.value += (ta.value && !ta.value.endsWith('\n') ? '\n' : '') + '・' + ch.dataset.name;
+                ta.focus();
+            };
+        });
+    }
+    bar.style.display = '';
 }
 
 /* ─────────────────────────────────────────────
@@ -612,6 +679,8 @@ function bindJournalDetailModalUI() {
 
         document.getElementById('journalViewContent').style.display = 'none';
         document.getElementById('journalEditContent').style.display = '';
+        const chipsBar = document.getElementById('journalEdChipsBar');
+        if (chipsBar) chipsBar.style.display = 'none';
         setTimeout(() => document.getElementById('editJournalText').focus(), 80);
     };
 
